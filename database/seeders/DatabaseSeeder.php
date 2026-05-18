@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
         $ownerPassword = config('app.seed_owner_password');
 
         if (! is_string($ownerPassword) || $ownerPassword === '') {
-            throw new RuntimeException('SEED_OWNER_PASSWORD must be set as a non-empty value in your .env file before running database seeding.');
+            throw new RuntimeException('SEED_OWNER_PASSWORD environment variable must be set as a non-empty value before running database seeding.');
         }
 
         User::query()->firstOrCreate(

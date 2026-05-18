@@ -47,8 +47,12 @@ return [
     |
     */
 
-    // Minutes (default: 1440 = 24 hours).
-    'expiration' => (int) env('SANCTUM_TOKEN_EXPIRATION', 1440),
+    // Minutes (default: 1440 = 24 hours). Invalid values fall back to 1440.
+    'expiration' => filter_var(
+        env('SANCTUM_TOKEN_EXPIRATION', 1440),
+        FILTER_VALIDATE_INT,
+        ['options' => ['min_range' => 1]]
+    ) ?: 1440,
 
     /*
     |--------------------------------------------------------------------------
