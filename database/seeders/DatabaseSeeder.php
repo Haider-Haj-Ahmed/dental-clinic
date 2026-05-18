@@ -5,7 +5,8 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
@@ -19,18 +20,14 @@ class DatabaseSeeder extends Seeder
         $ownerPassword = env('SEED_OWNER_PASSWORD');
 
         if (! is_string($ownerPassword) || $ownerPassword === '') {
-            $ownerPassword = Str::random(40);
-
-            if ($this->command !== null) {
-                $this->command->warn("SEED_OWNER_PASSWORD is not set. Generated seeded owner password: {$ownerPassword}");
-            }
+            throw new RuntimeException('SEED_OWNER_PASSWORD must be set as a non-empty value in your .env file before running database seeding.');
         }
 
         User::query()->firstOrCreate(
             ['email' => 'owner@clinic.local'],
             [
                 'name' => 'Clinic Owner',
-                'password' => $ownerPassword,
+                'password' => Hash::make($ownerPassword),
                 'role' => User::ROLE_OWNER,
             ]
         );
