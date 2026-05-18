@@ -20,6 +20,10 @@ class DatabaseSeeder extends Seeder
 
         if (! is_string($ownerPassword) || $ownerPassword === '') {
             $ownerPassword = Str::random(40);
+
+            if ($this->command !== null) {
+                $this->command->warn("SEED_OWNER_PASSWORD is not set. Generated seeded owner password: {$ownerPassword}");
+            }
         }
 
         User::query()->firstOrCreate(
