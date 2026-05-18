@@ -105,6 +105,8 @@ return [
         ),
     ],
 
+    'seed_owner_password' => env('SEED_OWNER_PASSWORD'),
+
     /*
     |--------------------------------------------------------------------------
     | Maintenance Mode Driver

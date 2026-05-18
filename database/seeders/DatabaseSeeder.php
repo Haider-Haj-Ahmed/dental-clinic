@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $ownerPassword = env('SEED_OWNER_PASSWORD');
+        $ownerPassword = config('app.seed_owner_password');
 
         if (! is_string($ownerPassword) || $ownerPassword === '') {
             throw new RuntimeException('SEED_OWNER_PASSWORD must be set as a non-empty value in your .env file before running database seeding.');
