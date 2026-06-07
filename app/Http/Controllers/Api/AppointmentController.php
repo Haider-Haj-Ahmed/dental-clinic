@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
@@ -33,13 +34,13 @@ class AppointmentController extends Controller
                 $providerId = $user->providerProfile?->id;
                 $query->where('provider_id', $providerId ?? 0);
             })
-            ->when($request->filled('provider_id'), fn ($query) => $query->where('provider_id', $request->integer('provider_id')))
-            ->when($request->filled('patient_id'), fn ($query) => $query->where('patient_id', $request->integer('patient_id')))
-            ->when($request->filled('status'), fn ($query) => $query->where('status', (string) $request->string('status')))
-            ->when($request->filled('date_from'), fn ($query) => $query->whereDate('start_at', '>=', $request->date('date_from')))
-            ->when($request->filled('date_to'), fn ($query) => $query->whereDate('start_at', '<=', $request->date('date_to')))
+            ->when($request->filled('provider_id'), fn ($q) => $q->where('provider_id', $request->integer('provider_id')))
+            ->when($request->filled('patient_id'), fn ($q) => $q->where('patient_id', $request->integer('patient_id')))
+            ->when($request->filled('status'), fn ($q) => $q->where('status', (string) $request->string('status')))
+            ->when($request->filled('date_from'), fn ($q) => $q->whereDate('start_at', '>=', $request->date('date_from')))
+            ->when($request->filled('date_to'), fn ($q) => $q->whereDate('start_at', '<=', $request->date('date_to')))
             ->orderBy('start_at')
-            ->paginate((int) $request->integer('per_page', 20))
+            ->paginate($this->perPage($request))
             ->withQueryString();
 
         return AppointmentResource::collection($appointments);
@@ -48,17 +49,26 @@ class AppointmentController extends Controller
     public function store(StoreAppointmentRequest $request): AppointmentResource
     {
         $payload = $request->validated();
-        $this->assertNoTimeConflict($payload['provider_id'], $payload['patient_id'], $payload['start_at'], $payload['end_at']);
 
         /** @var User $user */
         $user = $request->user();
         $payload['created_by'] = $user->id;
 
-        if (($payload['status'] ?? null) === Appointment::STATUS_CANCELLED) {
-            $payload['cancelled_at'] = now();
-        }
+        $appointment = DB::transaction(function () use ($payload) {
+            $this->assertNoTimeConflict(
+                $payload['provider_id'],
+                $payload['patient_id'],
+                $payload['start_at'],
+                $payload['end_at'],
+                lock: true,
+            );
 
-        $appointment = Appointment::query()->create($payload);
+            if (($payload['status'] ?? null) === Appointment::STATUS_CANCELLED) {
+                $payload['cancelled_at'] = now();
+            }
+
+            return Appointment::query()->create($payload);
+        });
 
         return AppointmentResource::make($appointment->load(['patient', 'provider', 'creator']));
     }
@@ -73,17 +83,19 @@ class AppointmentController extends Controller
         $payload = $request->validated();
 
         $providerId = $payload['provider_id'] ?? $appointment->provider_id;
-        $patientId = $payload['patient_id'] ?? $appointment->patient_id;
-        $startAt = $payload['start_at'] ?? $appointment->start_at;
-        $endAt = $payload['end_at'] ?? $appointment->end_at;
+        $patientId  = $payload['patient_id']  ?? $appointment->patient_id;
+        $startAt    = $payload['start_at']    ?? $appointment->start_at;
+        $endAt      = $payload['end_at']      ?? $appointment->end_at;
 
-        $this->assertNoTimeConflict($providerId, $patientId, $startAt, $endAt, $appointment->id);
+        DB::transaction(function () use ($appointment, $payload, $providerId, $patientId, $startAt, $endAt) {
+            $this->assertNoTimeConflict($providerId, $patientId, $startAt, $endAt, $appointment->id, lock: true);
 
-        if (array_key_exists('status', $payload)) {
-            $payload['cancelled_at'] = $payload['status'] === Appointment::STATUS_CANCELLED ? now() : null;
-        }
+            if (array_key_exists('status', $payload)) {
+                $payload['cancelled_at'] = $payload['status'] === Appointment::STATUS_CANCELLED ? now() : null;
+            }
 
-        $appointment->update($payload);
+            $appointment->update($payload);
+        });
 
         return AppointmentResource::make($appointment->refresh()->load(['patient', 'provider', 'creator']));
     }
@@ -100,32 +112,29 @@ class AppointmentController extends Controller
         int $patientId,
         string|DateTimeInterface $startAt,
         string|DateTimeInterface $endAt,
-        ?int $ignoreAppointmentId = null
+        ?int $ignoreAppointmentId = null,
+        bool $lock = false,
     ): void {
         $startAtValue = $startAt instanceof DateTimeInterface ? Carbon::instance($startAt) : Carbon::parse($startAt);
-        $endAtValue = $endAt instanceof DateTimeInterface ? Carbon::instance($endAt) : Carbon::parse($endAt);
+        $endAtValue   = $endAt   instanceof DateTimeInterface ? Carbon::instance($endAt)   : Carbon::parse($endAt);
 
-        $overlapQuery = Appointment::query()
-            ->when($ignoreAppointmentId !== null, fn ($query) => $query->whereKeyNot($ignoreAppointmentId))
+        $base = Appointment::query()
+            ->when($ignoreAppointmentId !== null, fn ($q) => $q->whereKeyNot($ignoreAppointmentId))
             ->whereNotIn('status', [Appointment::STATUS_CANCELLED, Appointment::STATUS_NO_SHOW])
             ->where('start_at', '<', $endAtValue)
             ->where('end_at', '>', $startAtValue);
 
-        $providerConflict = (clone $overlapQuery)
-            ->where('provider_id', $providerId)
-            ->exists();
+        if ($lock) {
+            $base->lockForUpdate();
+        }
 
-        if ($providerConflict) {
+        if ((clone $base)->where('provider_id', $providerId)->exists()) {
             throw ValidationException::withMessages([
                 'provider_id' => ['The provider already has an overlapping appointment.'],
             ]);
         }
 
-        $patientConflict = (clone $overlapQuery)
-            ->where('patient_id', $patientId)
-            ->exists();
-
-        if ($patientConflict) {
+        if ((clone $base)->where('patient_id', $patientId)->exists()) {
             throw ValidationException::withMessages([
                 'patient_id' => ['The patient already has an overlapping appointment.'],
             ]);

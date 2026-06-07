@@ -13,6 +13,7 @@ class AppointmentPolicy
             User::ROLE_OWNER,
             User::ROLE_RECEPTIONIST,
             User::ROLE_PROVIDER,
+            User::ROLE_ASSISTANT,
         ]);
     }
 
@@ -20,10 +21,6 @@ class AppointmentPolicy
     {
         if ($user->isOwner() || $user->isReceptionist()) {
             return true;
-        }
-
-        if (! $user->isProvider()) {
-            return false;
         }
 
         $providerId = $user->providerProfile?->id;
@@ -36,9 +33,21 @@ class AppointmentPolicy
         return $user->isOwner() || $user->isReceptionist();
     }
 
+    /**
+     * Providers may only update clinical notes on their own appointments.
+     * Receptionists and owners may update everything.
+     */
     public function update(User $user, Appointment $appointment): bool
     {
-        return $this->view($user, $appointment);
+        if ($user->isOwner() || $user->isReceptionist()) {
+            return true;
+        }
+
+        // Provider: only their own appointment, and only notes field
+        // (enforced in UpdateAppointmentRequest — provider payload stripped to notes only)
+        $providerId = $user->providerProfile?->id;
+
+        return $providerId !== null && $appointment->provider_id === $providerId;
     }
 
     public function delete(User $user, Appointment $appointment): bool

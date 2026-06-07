@@ -22,7 +22,6 @@ class Patient extends Model
         'address',
         'emergency_contact_name',
         'emergency_contact_phone',
-        'medical_alerts',
         'notes',
         'is_active',
     ];
@@ -31,12 +30,81 @@ class Patient extends Model
     {
         return [
             'date_of_birth' => 'date',
-            'is_active' => 'boolean',
+            'is_active'     => 'boolean',
         ];
     }
 
+    // Core
     public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class);
+    }
+
+    // Medical sub-records
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(PatientContact::class);
+    }
+
+    public function allergies(): HasMany
+    {
+        return $this->hasMany(PatientAllergy::class);
+    }
+
+    public function conditions(): HasMany
+    {
+        return $this->hasMany(PatientCondition::class);
+    }
+
+    public function medications(): HasMany
+    {
+        return $this->hasMany(PatientMedication::class);
+    }
+
+    public function consents(): HasMany
+    {
+        return $this->hasMany(PatientConsent::class);
+    }
+
+    // Medical history
+    public function medicalCases(): HasMany
+    {
+        return $this->hasMany(PatientMedicalCase::class);
+    }
+
+    public function medicalDocuments(): HasMany
+    {
+        return $this->hasMany(PatientMedicalDocument::class);
+    }
+
+    // Clinical
+    public function encounters(): HasMany
+    {
+        return $this->hasMany(Encounter::class);
+    }
+
+    public function odontogramEntries(): HasMany
+    {
+        return $this->hasMany(OdontogramEntry::class);
+    }
+
+    public function perioExams(): HasMany
+    {
+        return $this->hasMany(PerioExam::class);
+    }
+
+    public function treatmentPlans(): HasMany
+    {
+        return $this->hasMany(TreatmentPlan::class);
+    }
+
+    public function prescriptions(): HasMany
+    {
+        return $this->hasMany(Prescription::class);
+    }
+
+    public function recalls(): HasMany
+    {
+        return $this->hasMany(Recall::class);
     }
 }

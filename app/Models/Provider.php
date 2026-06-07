@@ -14,11 +14,14 @@ class Provider extends Model
 
     protected $fillable = [
         'user_id',
+        'operatory_id',
         'name',
         'specialty',
         'phone',
         'email',
         'license_number',
+        'bio',
+        'signature_path',
         'is_active',
     ];
 
@@ -34,8 +37,23 @@ class Provider extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function operatory(): BelongsTo
+    {
+        return $this->belongsTo(Operatory::class);
+    }
+
     public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class);
+    }
+
+    public function medicalCases(): HasMany
+    {
+        return $this->hasMany(PatientMedicalCase::class);
+    }
+
+    public function encounters(): HasMany
+    {
+        return $this->hasMany(Encounter::class);
     }
 }
