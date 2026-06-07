@@ -15,8 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'abilities' => CheckAbilities::class,
-            'ability' => CheckForAnyAbility::class,
+            'abilities'     => CheckAbilities::class,
+            'ability'       => CheckForAnyAbility::class,
+            'token.ability' => \App\Http\Middleware\EnforceTokenAbilities::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

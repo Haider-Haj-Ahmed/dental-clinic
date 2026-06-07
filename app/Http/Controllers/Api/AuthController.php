@@ -27,18 +27,14 @@ class AuthController extends Controller
             ]);
         }
 
-        $abilities = match ($user->role) {
-            User::ROLE_PROVIDER => ['appointments:read', 'appointments:update', 'patients:read', 'providers:read'],
-            default => ['*'],
-        };
-
+        $abilities = $user->tokenAbilities();
         $token = $user->createToken($credentials['device_name'], $abilities)->plainTextToken;
 
         return response()->json([
-            'token' => $token,
+            'token'      => $token,
             'token_type' => 'Bearer',
-            'abilities' => $abilities,
-            'user' => UserResource::make($user),
+            'abilities'  => $abilities,
+            'user'       => UserResource::make($user),
         ]);
     }
 
@@ -55,17 +51,13 @@ class AuthController extends Controller
         $request->user()?->currentAccessToken()?->delete();
         PersonalAccessToken::findToken($request->bearerToken())?->delete();
 
-        return response()->json([
-            'message' => 'Logged out successfully.',
-        ]);
+        return response()->json(['message' => 'Logged out successfully.']);
     }
 
     public function logoutAll(Request $request): JsonResponse
     {
         $request->user()?->tokens()->delete();
 
-        return response()->json([
-            'message' => 'All tokens were revoked successfully.',
-        ]);
+        return response()->json(['message' => 'All tokens were revoked successfully.']);
     }
 }
