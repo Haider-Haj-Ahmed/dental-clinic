@@ -10,6 +10,7 @@ use App\Models\PatientAllergy;
 use App\Models\PatientCondition;
 use App\Models\PatientConsent;
 use App\Models\PatientContact;
+use App\Models\PatientMedicalCase;
 use App\Models\PatientMedication;
 use App\Models\ProcedureCode;
 use App\Models\Provider;
@@ -22,6 +23,7 @@ use App\Policies\PatientAllergyPolicy;
 use App\Policies\PatientConditionPolicy;
 use App\Policies\PatientConsentPolicy;
 use App\Policies\PatientContactPolicy;
+use App\Policies\PatientMedicalCasePolicy;
 use App\Policies\PatientMedicationPolicy;
 use App\Policies\PatientPolicy;
 use App\Policies\ProcedureCodePolicy;
@@ -50,8 +52,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(PatientCondition::class,  PatientConditionPolicy::class);
         Gate::policy(PatientMedication::class, PatientMedicationPolicy::class);
         Gate::policy(PatientConsent::class,    PatientConsentPolicy::class);
+        Gate::policy(PatientMedicalCase::class, PatientMedicalCasePolicy::class);
 
-        // Owner bypasses all policy checks
         Gate::before(function (User $user) {
             return $user->isOwner() ? true : null;
         });

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\PatientConditionController;
 use App\Http\Controllers\Api\PatientConsentController;
 use App\Http\Controllers\Api\PatientContactController;
 use App\Http\Controllers\Api\PatientController;
+use App\Http\Controllers\Api\PatientMedicalCaseController;
 use App\Http\Controllers\Api\PatientMedicationController;
 use App\Http\Controllers\Api\ProcedureCodeController;
 use App\Http\Controllers\Api\ProviderController;
@@ -40,18 +41,22 @@ Route::prefix('v1')->group(function () {
         // Providers
         Route::apiResource('providers', ProviderController::class);
 
-        // Patients
+        // Patients + all nested sub-resources
         Route::middleware('token.ability:patients:read')->group(function () {
             Route::post('patients/{patient}/archive', [PatientController::class, 'archive'])->withTrashed();
             Route::post('patients/{patient}/restore', [PatientController::class, 'restore'])->withTrashed();
             Route::apiResource('patients', PatientController::class);
 
-            // Patient sub-resources
+            // Structured medical history (Phase 2A)
             Route::apiResource('patients/{patient}/contacts',    PatientContactController::class)->shallow();
             Route::apiResource('patients/{patient}/allergies',   PatientAllergyController::class)->shallow();
             Route::apiResource('patients/{patient}/conditions',  PatientConditionController::class)->shallow();
             Route::apiResource('patients/{patient}/medications', PatientMedicationController::class)->shallow();
             Route::apiResource('patients/{patient}/consents',    PatientConsentController::class)->shallow();
+
+            // Medical cases (Phase 2B-1)
+            Route::apiResource('patients/{patient}/medical-cases', PatientMedicalCaseController::class)
+                ->parameter('medical-cases', 'medicalCase');
         });
 
         // Appointments
