@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\PatientConsentController;
 use App\Http\Controllers\Api\PatientContactController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientMedicalCaseController;
+use App\Http\Controllers\Api\PatientMedicalDocumentController;
 use App\Http\Controllers\Api\PatientMedicationController;
 use App\Http\Controllers\Api\ProcedureCodeController;
 use App\Http\Controllers\Api\ProviderController;
@@ -57,6 +58,14 @@ Route::prefix('v1')->group(function () {
             // Medical cases (Phase 2B-1)
             Route::apiResource('patients/{patient}/medical-cases', PatientMedicalCaseController::class)
                 ->parameter('medical-cases', 'medicalCase');
+
+            // Medical documents (Phase 2B-2)
+            Route::get('patients/{patient}/documents/{document}/download',
+                [PatientMedicalDocumentController::class, 'download']
+            )->name('patients.documents.download');
+
+            Route::apiResource('patients/{patient}/documents', PatientMedicalDocumentController::class)
+                ->parameter('documents', 'document');
         });
 
         // Appointments
