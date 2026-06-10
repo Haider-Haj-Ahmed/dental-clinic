@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\PatientConsentController;
 use App\Http\Controllers\Api\PatientContactController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientMedicalCaseController;
+use App\Http\Controllers\Api\PatientTimelineController;
 use App\Http\Controllers\Api\PatientMedicalDocumentController;
 use App\Http\Controllers\Api\PatientMedicationController;
 use App\Http\Controllers\Api\ProcedureCodeController;
@@ -46,6 +47,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('token.ability:patients:read')->group(function () {
             Route::post('patients/{patient}/archive', [PatientController::class, 'archive'])->withTrashed();
             Route::post('patients/{patient}/restore', [PatientController::class, 'restore'])->withTrashed();
+            Route::get('patients/{patient}/timeline', PatientTimelineController::class)->name('patients.timeline');
             Route::apiResource('patients', PatientController::class);
 
             // Structured medical history (Phase 2A)
