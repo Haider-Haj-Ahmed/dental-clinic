@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AppointmentTypeController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommunicationLogController;
+use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\InvoiceItemController;
 use App\Http\Controllers\Api\OperatoryController;
 use App\Http\Controllers\Api\PatientAllergyController;
 use App\Http\Controllers\Api\PatientConditionController;
@@ -14,6 +16,9 @@ use App\Http\Controllers\Api\PatientMedicalCaseController;
 use App\Http\Controllers\Api\PatientMedicalDocumentController;
 use App\Http\Controllers\Api\PatientMedicationController;
 use App\Http\Controllers\Api\PatientTimelineController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PaymentMethodController;
+use App\Http\Controllers\Api\PaymentPlanController;
 use App\Http\Controllers\Api\ProcedureCodeController;
 use App\Http\Controllers\Api\ProviderController;
 use App\Http\Controllers\Api\RecallController;
@@ -37,10 +42,11 @@ Route::prefix('v1')->group(function () {
         });
 
         // Staff & config (owner only — enforced via policies)
-        Route::apiResource('users',             UserController::class);
-        Route::apiResource('operatories',       OperatoryController::class);
+        Route::apiResource('users',           UserController::class);
+        Route::apiResource('operatories',     OperatoryController::class);
         Route::apiResource('appointment-types', AppointmentTypeController::class);
-        Route::apiResource('procedure-codes',   ProcedureCodeController::class);
+        Route::apiResource('procedure-codes', ProcedureCodeController::class);
+        Route::apiResource('payment-methods', PaymentMethodController::class);
 
         // Providers
         Route::apiResource('providers', ProviderController::class);
@@ -50,20 +56,21 @@ Route::prefix('v1')->group(function () {
             Route::post('patients/{patient}/archive',  [PatientController::class, 'archive'])->withTrashed();
             Route::post('patients/{patient}/restore',  [PatientController::class, 'restore'])->withTrashed();
             Route::get('patients/{patient}/timeline',  PatientTimelineController::class)->name('patients.timeline');
+            Route::get('patients/{patient}/ledger',    [InvoiceController::class, 'ledger'])->name('patients.ledger');
             Route::apiResource('patients', PatientController::class);
 
-            // Structured medical history (Phase 2A)
+            // Phase 2A — structured sub-tables
             Route::apiResource('patients/{patient}/contacts',    PatientContactController::class)->shallow();
             Route::apiResource('patients/{patient}/allergies',   PatientAllergyController::class)->shallow();
             Route::apiResource('patients/{patient}/conditions',  PatientConditionController::class)->shallow();
             Route::apiResource('patients/{patient}/medications', PatientMedicationController::class)->shallow();
             Route::apiResource('patients/{patient}/consents',    PatientConsentController::class)->shallow();
 
-            // Medical cases (Phase 2B-1)
+            // Phase 2B-1 — medical cases
             Route::apiResource('patients/{patient}/medical-cases', PatientMedicalCaseController::class)
                 ->parameter('medical-cases', 'medicalCase');
 
-            // Medical documents (Phase 2B-2)
+            // Phase 2B-2 — medical documents
             Route::get('patients/{patient}/documents/{document}/download',
                 [PatientMedicalDocumentController::class, 'download']
             )->name('patients.documents.download');
@@ -79,14 +86,21 @@ Route::prefix('v1')->group(function () {
         // Schedule blocks
         Route::apiResource('schedule-blocks', ScheduleBlockController::class);
 
-        // Recalls (Phase 3A)
-        Route::get('recalls/due',                    [RecallController::class, 'due']);
-        Route::patch('recalls/{recall}/status',      [RecallController::class, 'updateStatus']);
-        Route::post('recalls/{recall}/send-reminder',[RecallController::class, 'sendReminder']);
+        // Phase 3A — recalls & communication logs
+        Route::get('recalls/due',                     [RecallController::class, 'due']);
+        Route::patch('recalls/{recall}/status',       [RecallController::class, 'updateStatus']);
+        Route::post('recalls/{recall}/send-reminder', [RecallController::class, 'sendReminder']);
         Route::apiResource('recalls', RecallController::class);
-
-        // Communication logs (Phase 3A) — read-only via API
-        Route::get('communication-logs',             [CommunicationLogController::class, 'index']);
+        Route::get('communication-logs',              [CommunicationLogController::class, 'index']);
         Route::get('communication-logs/{communicationLog}', [CommunicationLogController::class, 'show']);
+
+        // Phase 3B — billing
+        Route::post('invoices/{invoice}/finalize',    [InvoiceController::class, 'finalize']);
+        Route::post('invoices/{invoice}/void',        [InvoiceController::class, 'void']);
+        Route::apiResource('invoices', InvoiceController::class);
+        Route::apiResource('invoices/{invoice}/items', InvoiceItemController::class)
+            ->parameter('items', 'item')->shallow();
+        Route::apiResource('payments',      PaymentController::class)->except(['update']);
+        Route::apiResource('payment-plans', PaymentPlanController::class)->except(['update']);
     });
 });
