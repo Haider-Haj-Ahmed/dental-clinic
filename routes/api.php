@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AppointmentTypeController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CommunicationLogController;
 use App\Http\Controllers\Api\OperatoryController;
 use App\Http\Controllers\Api\PatientAllergyController;
 use App\Http\Controllers\Api\PatientConditionController;
@@ -10,11 +11,12 @@ use App\Http\Controllers\Api\PatientConsentController;
 use App\Http\Controllers\Api\PatientContactController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientMedicalCaseController;
-use App\Http\Controllers\Api\PatientTimelineController;
 use App\Http\Controllers\Api\PatientMedicalDocumentController;
 use App\Http\Controllers\Api\PatientMedicationController;
+use App\Http\Controllers\Api\PatientTimelineController;
 use App\Http\Controllers\Api\ProcedureCodeController;
 use App\Http\Controllers\Api\ProviderController;
+use App\Http\Controllers\Api\RecallController;
 use App\Http\Controllers\Api\ScheduleBlockController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -45,9 +47,9 @@ Route::prefix('v1')->group(function () {
 
         // Patients + all nested sub-resources
         Route::middleware('token.ability:patients:read')->group(function () {
-            Route::post('patients/{patient}/archive', [PatientController::class, 'archive'])->withTrashed();
-            Route::post('patients/{patient}/restore', [PatientController::class, 'restore'])->withTrashed();
-            Route::get('patients/{patient}/timeline', PatientTimelineController::class)->name('patients.timeline');
+            Route::post('patients/{patient}/archive',  [PatientController::class, 'archive'])->withTrashed();
+            Route::post('patients/{patient}/restore',  [PatientController::class, 'restore'])->withTrashed();
+            Route::get('patients/{patient}/timeline',  PatientTimelineController::class)->name('patients.timeline');
             Route::apiResource('patients', PatientController::class);
 
             // Structured medical history (Phase 2A)
@@ -65,7 +67,6 @@ Route::prefix('v1')->group(function () {
             Route::get('patients/{patient}/documents/{document}/download',
                 [PatientMedicalDocumentController::class, 'download']
             )->name('patients.documents.download');
-
             Route::apiResource('patients/{patient}/documents', PatientMedicalDocumentController::class)
                 ->parameter('documents', 'document');
         });
@@ -77,5 +78,15 @@ Route::prefix('v1')->group(function () {
 
         // Schedule blocks
         Route::apiResource('schedule-blocks', ScheduleBlockController::class);
+
+        // Recalls (Phase 3A)
+        Route::get('recalls/due',                    [RecallController::class, 'due']);
+        Route::patch('recalls/{recall}/status',      [RecallController::class, 'updateStatus']);
+        Route::post('recalls/{recall}/send-reminder',[RecallController::class, 'sendReminder']);
+        Route::apiResource('recalls', RecallController::class);
+
+        // Communication logs (Phase 3A) — read-only via API
+        Route::get('communication-logs',             [CommunicationLogController::class, 'index']);
+        Route::get('communication-logs/{communicationLog}', [CommunicationLogController::class, 'show']);
     });
 });
