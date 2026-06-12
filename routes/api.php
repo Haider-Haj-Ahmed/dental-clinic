@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AppointmentTypeController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommunicationLogController;
+use App\Http\Controllers\Api\InventoryItemController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\InvoiceItemController;
 use App\Http\Controllers\Api\OperatoryController;
@@ -21,8 +22,10 @@ use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\PaymentPlanController;
 use App\Http\Controllers\Api\ProcedureCodeController;
 use App\Http\Controllers\Api\ProviderController;
+use App\Http\Controllers\Api\PurchaseOrderController;
 use App\Http\Controllers\Api\RecallController;
 use App\Http\Controllers\Api\ScheduleBlockController;
+use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,11 +45,11 @@ Route::prefix('v1')->group(function () {
         });
 
         // Staff & config (owner only — enforced via policies)
-        Route::apiResource('users',           UserController::class);
-        Route::apiResource('operatories',     OperatoryController::class);
+        Route::apiResource('users',             UserController::class);
+        Route::apiResource('operatories',       OperatoryController::class);
         Route::apiResource('appointment-types', AppointmentTypeController::class);
-        Route::apiResource('procedure-codes', ProcedureCodeController::class);
-        Route::apiResource('payment-methods', PaymentMethodController::class);
+        Route::apiResource('procedure-codes',   ProcedureCodeController::class);
+        Route::apiResource('payment-methods',   PaymentMethodController::class);
 
         // Providers
         Route::apiResource('providers', ProviderController::class);
@@ -102,5 +105,15 @@ Route::prefix('v1')->group(function () {
             ->parameter('items', 'item')->shallow();
         Route::apiResource('payments',      PaymentController::class)->except(['update']);
         Route::apiResource('payment-plans', PaymentPlanController::class)->except(['update']);
+
+        // Phase 3C — inventory
+        Route::get('inventory-items/low-stock',                      [InventoryItemController::class, 'lowStock']);
+        Route::post('inventory-items/{inventoryItem}/adjust-stock',  [InventoryItemController::class, 'adjustStock']);
+        Route::get('inventory-items/{inventoryItem}/movements',      [InventoryItemController::class, 'movements']);
+        Route::apiResource('inventory-items', InventoryItemController::class);
+        Route::apiResource('suppliers', SupplierController::class);
+        Route::post('purchase-orders/{purchaseOrder}/receive',       [PurchaseOrderController::class, 'receive']);
+        Route::post('purchase-orders/{purchaseOrder}/cancel',        [PurchaseOrderController::class, 'cancel']);
+        Route::apiResource('purchase-orders', PurchaseOrderController::class)->except(['update']);
     });
 });
