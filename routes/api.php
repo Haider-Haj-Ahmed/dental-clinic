@@ -25,6 +25,8 @@ use App\Http\Controllers\Api\ProviderController;
 use App\Http\Controllers\Api\PurchaseOrderController;
 use App\Http\Controllers\Api\RecallController;
 use App\Http\Controllers\Api\ScheduleBlockController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -115,5 +117,15 @@ Route::prefix('v1')->group(function () {
         Route::post('purchase-orders/{purchaseOrder}/receive',       [PurchaseOrderController::class, 'receive']);
         Route::post('purchase-orders/{purchaseOrder}/cancel',        [PurchaseOrderController::class, 'cancel']);
         Route::apiResource('purchase-orders', PurchaseOrderController::class)->except(['update']);
+
+        // Phase 4A — dashboard & reports (owner + receptionist only, enforced in controllers)
+        Route::get('dashboard/kpis', [DashboardController::class, 'kpis']);
+        Route::prefix('reports')->group(function () {
+            Route::get('appointments',      [ReportController::class, 'appointments']);
+            Route::get('production',        [ReportController::class, 'production']);
+            Route::get('collections',       [ReportController::class, 'collections']);
+            Route::get('recall-performance',[ReportController::class, 'recallPerformance']);
+            Route::get('inventory',         [ReportController::class, 'inventory']);
+        });
     });
 });
