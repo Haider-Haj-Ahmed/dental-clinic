@@ -26,8 +26,10 @@ use App\Models\Recall;
 use App\Models\ScheduleBlock;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Observers\AuditObserver;
 use App\Policies\AppointmentPolicy;
 use App\Policies\AppointmentTypePolicy;
+use App\Policies\AuditLogPolicy;
 use App\Policies\CommunicationLogPolicy;
 use App\Policies\InventoryItemPolicy;
 use App\Policies\InvoicePolicy;
@@ -50,6 +52,7 @@ use App\Policies\RecallPolicy;
 use App\Policies\ScheduleBlockPolicy;
 use App\Policies\SupplierPolicy;
 use App\Policies\UserPolicy;
+use App\Models\AuditLog;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -59,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // ── Policies ──────────────────────────────────────────────────────────
         Gate::policy(User::class,                   UserPolicy::class);
         Gate::policy(Patient::class,                PatientPolicy::class);
         Gate::policy(Provider::class,               ProviderPolicy::class);
@@ -83,9 +87,33 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Supplier::class,               SupplierPolicy::class);
         Gate::policy(InventoryItem::class,          InventoryItemPolicy::class);
         Gate::policy(PurchaseOrder::class,          PurchaseOrderPolicy::class);
+        Gate::policy(AuditLog::class,               AuditLogPolicy::class);
 
+        // Owner bypasses all policy checks
         Gate::before(function (User $user) {
             return $user->isOwner() ? true : null;
         });
+
+        // ── Observers — models that get audited ───────────────────────────────
+        $audited = [
+            Patient::class,
+            Provider::class,
+            Appointment::class,
+            Invoice::class,
+            Payment::class,
+            PatientMedicalCase::class,
+            PatientMedicalDocument::class,
+            PatientAllergy::class,
+            PatientCondition::class,
+            PatientMedication::class,
+            Recall::class,
+            InventoryItem::class,
+            PurchaseOrder::class,
+            User::class,
+        ];
+
+        foreach ($audited as $model) {
+            $model::observe(AuditObserver::class);
+        }
     }
 }

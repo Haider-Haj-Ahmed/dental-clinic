@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\ProviderController;
 use App\Http\Controllers\Api\PurchaseOrderController;
 use App\Http\Controllers\Api\RecallController;
 use App\Http\Controllers\Api\ScheduleBlockController;
+use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SupplierController;
@@ -127,5 +128,9 @@ Route::prefix('v1')->group(function () {
             Route::get('recall-performance',[ReportController::class, 'recallPerformance']);
             Route::get('inventory',         [ReportController::class, 'inventory']);
         });
+
+        // Phase 4B — audit logs (owner only)
+        Route::get('audit-logs',             [AuditLogController::class, 'index']);
+        Route::get('audit-logs/{auditLog}',  [AuditLogController::class, 'show']);
     });
 });
