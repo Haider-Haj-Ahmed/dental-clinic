@@ -29,6 +29,7 @@ use App\Models\User;
 use App\Observers\AuditObserver;
 use App\Policies\AppointmentPolicy;
 use App\Policies\AppointmentTypePolicy;
+use App\Policies\AiAnalysisResultPolicy;
 use App\Policies\AuditLogPolicy;
 use App\Policies\CommunicationLogPolicy;
 use App\Policies\InventoryItemPolicy;
@@ -52,6 +53,7 @@ use App\Policies\RecallPolicy;
 use App\Policies\ScheduleBlockPolicy;
 use App\Policies\SupplierPolicy;
 use App\Policies\UserPolicy;
+use App\Models\AiAnalysisResult;
 use App\Models\AuditLog;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -88,6 +90,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(InventoryItem::class,          InventoryItemPolicy::class);
         Gate::policy(PurchaseOrder::class,          PurchaseOrderPolicy::class);
         Gate::policy(AuditLog::class,               AuditLogPolicy::class);
+        Gate::policy(AiAnalysisResult::class,      AiAnalysisResultPolicy::class);
 
         // Owner bypasses all policy checks
         Gate::before(function (User $user) {
@@ -110,6 +113,7 @@ class AppServiceProvider extends ServiceProvider
             InventoryItem::class,
             PurchaseOrder::class,
             User::class,
+            AiAnalysisResult::class,
         ];
 
         foreach ($audited as $model) {

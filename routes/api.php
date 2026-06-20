@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AppointmentTypeController;
+use App\Http\Controllers\Api\AiAnalysisController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommunicationLogController;
@@ -191,6 +192,22 @@ Route::prefix('v1')->group(function () {
             Route::get('recall-performance', [ReportController::class, 'recallPerformance']);
             Route::get('inventory',          [ReportController::class, 'inventory']);
         });
+
+        // ── AI analysis (Phase 5A) ───────────────────────────────────────────────
+        Route::middleware('token.ability:clinical:write')->group(function () {
+            Route::post('patients/{patient}/documents/{document}/analyze', [AiAnalysisController::class, 'analyzeDocument'])
+                ->name('patients.documents.analyze');
+        });
+
+        Route::middleware('token.ability:clinical:read')->group(function () {
+            Route::get('patients/{patient}/ai-results', [AiAnalysisController::class, 'patientResults'])
+                ->name('patients.ai-results.index');
+        });
+
+        // AI results actions — no ability middleware, policy handles it
+        Route::get('ai-results/{result}',          [AiAnalysisController::class, 'show']);
+        Route::post('ai-results/{result}/accept',  [AiAnalysisController::class, 'accept']);
+        Route::post('ai-results/{result}/dismiss', [AiAnalysisController::class, 'dismiss']);
 
         // ── Audit logs (owner only — policy-enforced) ─────────────────────────
         Route::get('audit-logs',            [AuditLogController::class, 'index']);
