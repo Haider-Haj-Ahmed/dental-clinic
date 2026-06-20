@@ -57,37 +57,57 @@ class User extends Authenticatable
         return $this->hasMany(Appointment::class, 'created_by');
     }
 
-    public function isOwner(): bool       { return $this->role === self::ROLE_OWNER; }
+    public function isOwner(): bool        { return $this->role === self::ROLE_OWNER; }
     public function isReceptionist(): bool { return $this->role === self::ROLE_RECEPTIONIST; }
-    public function isProvider(): bool    { return $this->role === self::ROLE_PROVIDER; }
-    public function isAssistant(): bool   { return $this->role === self::ROLE_ASSISTANT; }
+    public function isProvider(): bool     { return $this->role === self::ROLE_PROVIDER; }
+    public function isAssistant(): bool    { return $this->role === self::ROLE_ASSISTANT; }
 
     public function hasAnyRole(array $roles): bool
     {
         return in_array($this->role, $roles, true);
     }
 
-    /** Abilities granted at login based on role */
+    /**
+     * Token abilities issued at login.
+     *
+     * Abilities map to route groups protected by token.ability middleware.
+     * Owner gets '*' — bypasses all checks.
+     * All other roles get an explicit list that mirrors what their policies allow.
+     */
     public function tokenAbilities(): array
     {
         return match ($this->role) {
-            self::ROLE_PROVIDER => [
-                'appointments:read', 'appointments:update',
-                'patients:read',
-                'clinical:write',
-                'documents:write',
-            ],
+            self::ROLE_OWNER => ['*'],
+
             self::ROLE_RECEPTIONIST => [
-                'appointments:*',
-                'patients:*',
-                'billing:read',
+                'patients:read', 'patients:write',
+                'appointments:read', 'appointments:write',
+                'clinical:read',
+                'billing:read', 'billing:write',
+                'recalls:read', 'recalls:write',
+                'inventory:read',
+                'schedule-blocks:read', 'schedule-blocks:write',
             ],
-            self::ROLE_ASSISTANT => [
-                'appointments:read',
+
+            self::ROLE_PROVIDER => [
                 'patients:read',
+                'appointments:read', 'appointments:write',
+                'clinical:read', 'clinical:write',
                 'documents:write',
+                'recalls:read',
+                'billing:read',
+                'schedule-blocks:read',
             ],
-            default => ['*'],
+
+            self::ROLE_ASSISTANT => [
+                'patients:read',
+                'appointments:read',
+                'clinical:read',
+                'documents:write',
+                'schedule-blocks:read',
+            ],
+
+            default => [],
         };
     }
 }

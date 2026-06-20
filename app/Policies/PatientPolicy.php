@@ -13,6 +13,7 @@ class PatientPolicy
             User::ROLE_OWNER,
             User::ROLE_RECEPTIONIST,
             User::ROLE_PROVIDER,
+            User::ROLE_ASSISTANT,
         ]);
     }
 

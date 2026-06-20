@@ -1,0 +1,23 @@
+<?php
+
+namespace App\Policies;
+
+use App\Models\Recall;
+use App\Models\User;
+
+class RecallPolicy
+{
+    public function viewAny(User $user): bool
+    {
+        return $user->hasAnyRole([
+            User::ROLE_OWNER,
+            User::ROLE_RECEPTIONIST,
+            User::ROLE_PROVIDER,
+        ]);
+    }
+
+    public function view(User $user, Recall $recall): bool   { return $this->viewAny($user); }
+    public function create(User $user): bool                  { return $user->isOwner() || $user->isReceptionist(); }
+    public function update(User $user, Recall $recall): bool  { return $user->isOwner() || $user->isReceptionist(); }
+    public function delete(User $user, Recall $recall): bool  { return $user->isOwner(); }
+}
