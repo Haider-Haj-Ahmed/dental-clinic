@@ -205,9 +205,16 @@ Route::prefix('v1')->group(function () {
         });
 
         // AI results actions — no ability middleware, policy handles it
-        Route::get('ai-results/{result}',          [AiAnalysisController::class, 'show']);
-        Route::post('ai-results/{result}/accept',  [AiAnalysisController::class, 'accept']);
-        Route::post('ai-results/{result}/dismiss', [AiAnalysisController::class, 'dismiss']);
+        // SOAP suggestion — clinical:write required
+        Route::middleware('token.ability:clinical:write')->group(function () {
+            Route::post('encounters/{encounter}/suggest-soap', [AiAnalysisController::class, 'suggestSoap'])
+                ->name('encounters.suggest-soap');
+        });
+
+        Route::get('ai-results/{result}',           [AiAnalysisController::class, 'show']);
+        Route::post('ai-results/{result}/accept',   [AiAnalysisController::class, 'accept']);
+        Route::post('ai-results/{result}/dismiss',  [AiAnalysisController::class, 'dismiss']);
+        Route::post('ai-results/{result}/apply-soap', [AiAnalysisController::class, 'applySoap']);
 
         // ── Audit logs (owner only — policy-enforced) ─────────────────────────
         Route::get('audit-logs',            [AuditLogController::class, 'index']);

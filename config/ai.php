@@ -2,37 +2,15 @@
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default AI Provider
-    |--------------------------------------------------------------------------
-    | Supported: "anthropic", "openai", "gemini"
-    */
-    'default_provider' => env('AI_PROVIDER', 'anthropic'),
+    'default_provider' => env('AI_PROVIDER', 'gemini'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | API Keys
-    |--------------------------------------------------------------------------
-    */
     'api_key' => env('AI_API_KEY', ''),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Models
-    |--------------------------------------------------------------------------
-    | Which model to use for each analysis type.
-    */
     'models' => [
-        'vision'   => env('AI_VISION_MODEL', 'claude-haiku-4-5-20251001'),
-        'text'     => env('AI_TEXT_MODEL', 'claude-haiku-4-5-20251001'),
+        'vision' => env('AI_VISION_MODEL', 'gemini-2.0-flash'),
+        'text'   => env('AI_TEXT_MODEL',   'gemini-2.0-flash'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Allowed mime types for image analysis
-    |--------------------------------------------------------------------------
-    */
     'allowed_image_types' => [
         'image/jpeg',
         'image/png',
