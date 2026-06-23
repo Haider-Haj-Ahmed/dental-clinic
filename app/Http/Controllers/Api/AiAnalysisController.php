@@ -7,8 +7,10 @@ use App\Http\Resources\AiAnalysisResultResource;
 use App\Models\AiAnalysisResult;
 use App\Models\Encounter;
 use App\Models\Patient;
+use App\Models\PerioExam;
 use App\Models\Prescription;
 use App\Models\PrescriptionItem;
+use App\Models\Recall;
 use App\Models\PatientMedicalDocument;
 use App\Services\AiService;
 use Illuminate\Support\Facades\DB;
@@ -244,6 +246,115 @@ class AiAnalysisController extends Controller
             ],
             'ai_result' => AiAnalysisResultResource::make($result->refresh()->load(['requestedBy', 'reviewedBy'])),
         ], 201);
+    }
+
+    // ── Phase 5D — Perio risk scoring ───────────────────────────────────────
+
+    /**
+     * POST /perio-exams/{perioExam}/risk-score
+     */
+    public function scorePerioRisk(Request $request, PerioExam $perioExam): AiAnalysisResultResource
+    {
+        $this->authorize('create', AiAnalysisResult::class);
+
+        abort_if(
+            $perioExam->measures()->count() === 0,
+            422,
+            'Cannot score risk on a perio exam with no measurements recorded.'
+        );
+
+        $existing = AiAnalysisResult::query()
+            ->where('source_type', 'encounter')
+            ->where('source_id', $perioExam->id)
+            ->where('analysis_type', AiAnalysisResult::TYPE_PERIO_RISK)
+            ->where('status', AiAnalysisResult::STATUS_PENDING)
+            ->first();
+
+        if ($existing) {
+            return AiAnalysisResultResource::make($existing->load(['requestedBy', 'reviewedBy']));
+        }
+
+        $result = $this->aiService->scorePerioRisk($perioExam, $request->user());
+
+        return AiAnalysisResultResource::make($result->load(['requestedBy', 'reviewedBy']));
+    }
+
+    // ── Phase 5D — AI patient insights ──────────────────────────────────────
+
+    /**
+     * GET /patients/{patient}/ai-insights
+     * Aggregate view: latest AI results per type for this patient.
+     */
+    public function patientInsights(Patient $patient): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('viewAny', AiAnalysisResult::class);
+
+        $types = [
+            AiAnalysisResult::TYPE_XRAY_ANALYSIS,
+            AiAnalysisResult::TYPE_SOAP_SUGGESTION,
+            AiAnalysisResult::TYPE_PRESCRIPTION_SUGGESTION,
+            AiAnalysisResult::TYPE_PERIO_RISK,
+        ];
+
+        $insights = [];
+
+        foreach ($types as $type) {
+            $latest = AiAnalysisResult::query()
+                ->where('patient_id', $patient->id)
+                ->where('analysis_type', $type)
+                ->with(['requestedBy'])
+                ->latest()
+                ->first();
+
+            $insights[$type] = $latest
+                ? AiAnalysisResultResource::make($latest)->resolve()
+                : null;
+        }
+
+        // Pull latest perio risk score value if present
+        $latestPerio = $insights[AiAnalysisResult::TYPE_PERIO_RISK];
+        $riskLevel   = $latestPerio['result']['risk_level'] ?? null;
+        $riskScore   = $latestPerio['result']['risk_score'] ?? null;
+
+        return response()->json([
+            'patient_id'  => $patient->id,
+            'risk_summary'=> [
+                'perio_risk_level' => $riskLevel,
+                'perio_risk_score' => $riskScore,
+            ],
+            'latest_results' => $insights,
+        ]);
+    }
+
+    // ── Phase 5D — Recall prioritisation ────────────────────────────────────
+
+    /**
+     * POST /recalls/ai-prioritize
+     * Score the pending recall list by AI-assessed urgency.
+     */
+    public function prioritiseRecalls(Request $request): AiAnalysisResultResource
+    {
+        $this->authorize('create', AiAnalysisResult::class);
+
+        $request->validate([
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $limit = $request->integer('limit', 50);
+
+        $recalls = Recall::query()
+            ->with('patient')
+            ->whereIn('status', [Recall::STATUS_PENDING, Recall::STATUS_SENT])
+            ->whereDate('due_date', '<=', now()->addDays(30))
+            ->orderBy('due_date')
+            ->limit($limit)
+            ->get();
+
+        abort_if($recalls->isEmpty(), 422, 'No pending recalls due in the next 30 days.');
+
+        $result = $this->aiService->prioritiseRecalls($recalls, $request->user());
+
+        return AiAnalysisResultResource::make($result->load(['requestedBy', 'reviewedBy']));
     }
 
     // ── Shared list / show / review ───────────────────────────────────────────

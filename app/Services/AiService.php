@@ -6,6 +6,8 @@ use App\Models\AiAnalysisResult;
 use App\Models\Encounter;
 use App\Models\Patient;
 use App\Models\PatientMedicalDocument;
+use App\Models\PerioExam;
+use App\Models\Recall;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -323,6 +325,189 @@ Return ONLY this JSON structure:
   ],
   "general_notes": "any additional clinical notes for the prescribing dentist",
   "disclaimer": "AI-generated prescription suggestions for clinical review only. The prescribing dentist is solely responsible for all prescriptions issued. Always verify drug interactions and patient allergies before prescribing."
+}
+PROMPT;
+    }
+
+    // ── Perio risk scoring (Phase 5D) ────────────────────────────────────────
+
+    public function scorePerioRisk(
+        PerioExam $exam,
+        User $requestedBy,
+    ): AiAnalysisResult {
+        $exam->loadMissing('measures');
+        $patient = $exam->patient->loadMissing(['conditions', 'medications']);
+
+        $prompt    = $this->buildPerioRiskPrompt($exam, $patient);
+        $rawResult = $this->callTextApi($prompt);
+
+        return AiAnalysisResult::create([
+            'patient_id'    => $exam->patient_id,
+            'requested_by'  => $requestedBy->id,
+            'source_type'   => 'encounter',
+            'source_id'     => $exam->id,
+            'analysis_type' => AiAnalysisResult::TYPE_PERIO_RISK,
+            'ai_provider'   => 'gemini',
+            'ai_model'      => config('ai.models.text', 'gemini-2.0-flash'),
+            'input_summary' => "PerioExam #{$exam->id} — {$exam->exam_date->toDateString()} — {$exam->measures->count()} sites",
+            'result'        => $rawResult,
+            'status'        => AiAnalysisResult::STATUS_PENDING,
+        ]);
+    }
+
+    // ── Recall prioritisation (Phase 5D) ─────────────────────────────────────
+
+    public function prioritiseRecalls(
+        \Illuminate\Support\Collection $recalls,
+        User $requestedBy,
+    ): AiAnalysisResult {
+        $prompt    = $this->buildRecallPriorityPrompt($recalls);
+        $rawResult = $this->callTextApi($prompt);
+
+        // Linked to no single patient — use the requesting user as anchor
+        return AiAnalysisResult::create([
+            'patient_id'    => $recalls->first()->patient_id,
+            'requested_by'  => $requestedBy->id,
+            'source_type'   => 'patient',
+            'source_id'     => $recalls->first()->patient_id,
+            'analysis_type' => AiAnalysisResult::TYPE_PERIO_RISK, // reuse type slot — dedicated type not needed
+            'ai_provider'   => 'gemini',
+            'ai_model'      => config('ai.models.text', 'gemini-2.0-flash'),
+            'input_summary' => "Recall prioritisation — {$recalls->count()} pending recalls",
+            'result'        => $rawResult,
+            'status'        => AiAnalysisResult::STATUS_PENDING,
+        ]);
+    }
+
+    // ── Perio risk prompt ─────────────────────────────────────────────────────
+
+    private function buildPerioRiskPrompt(PerioExam $exam, $patient): string
+    {
+        $conditions = $patient->conditions
+            ->where('status', 'active')
+            ->pluck('condition')->implode(', ') ?: 'None documented';
+
+        $medications = $patient->medications
+            ->whereNull('end_date')
+            ->pluck('drug_name')->implode(', ') ?: 'None documented';
+
+        // Summarise measurements for the prompt
+        $totalSites      = $exam->measures->count();
+        $bleedingSites   = $exam->measures->where('bleeding_on_probe', true)->count();
+        $suppSites       = $exam->measures->where('suppuration', true)->count();
+        $deepPockets     = $exam->measures->where('probing_depth', '>=', 5)->count();
+        $furcationInv    = $exam->measures->where('furcation', '>=', 2)->count();
+        $mobilityIssues  = $exam->measures->where('mobility', '>=', 2)->count();
+        $maxDepth        = $exam->measures->max('probing_depth') ?? 0;
+        $avgDepth        = round($exam->measures->avg('probing_depth') ?? 0, 1);
+
+        // Per-tooth summary for deeper analysis
+        $toothSummary = $exam->measures
+            ->groupBy('tooth_number')
+            ->map(fn ($sites) => [
+                'max_depth'      => $sites->max('probing_depth'),
+                'bleeding_sites' => $sites->where('bleeding_on_probe', true)->count(),
+                'furcation'      => $sites->max('furcation'),
+                'mobility'       => $sites->max('mobility'),
+            ])
+            ->toArray();
+
+        $toothSummaryJson = json_encode($toothSummary, JSON_PRETTY_PRINT);
+
+        return <<<PROMPT
+Analyse this periodontal examination and provide a risk assessment.
+
+PATIENT MEDICAL CONTEXT:
+- Active conditions: {$conditions}
+- Current medications: {$medications}
+
+EXAMINATION SUMMARY:
+- Exam date: {$exam->exam_date->toDateString()}
+- Total sites recorded: {$totalSites}
+- Sites with bleeding on probe: {$bleedingSites}
+- Sites with suppuration: {$suppSites}
+- Sites with probing depth ≥ 5mm: {$deepPockets}
+- Sites with furcation involvement ≥ class II: {$furcationInv}
+- Sites with mobility ≥ grade II: {$mobilityIssues}
+- Maximum probing depth: {$maxDepth}mm
+- Average probing depth: {$avgDepth}mm
+
+PER-TOOTH DATA (tooth number → max_depth, bleeding_sites, furcation, mobility):
+{$toothSummaryJson}
+
+Return ONLY this JSON structure:
+{
+  "risk_level": "low|moderate|high|severe",
+  "risk_score": 0-100,
+  "contributing_factors": [
+    {
+      "factor": "string",
+      "severity": "low|moderate|high",
+      "detail": "string"
+    }
+  ],
+  "teeth_of_concern": [
+    {
+      "tooth_number": number,
+      "issues": ["string"],
+      "priority": "monitor|treat|urgent"
+    }
+  ],
+  "systemic_risk_factors": ["string"],
+  "recommended_recall_interval_months": number,
+  "treatment_recommendations": ["string"],
+  "prognosis": "good|fair|poor|guarded",
+  "disclaimer": "AI-generated periodontal risk assessment for clinical review only. The treating dentist must verify all findings clinically."
+}
+PROMPT;
+    }
+
+    // ── Recall priority prompt ────────────────────────────────────────────────
+
+    private function buildRecallPriorityPrompt(\Illuminate\Support\Collection $recalls): string
+    {
+        $recallData = $recalls->map(fn ($r) => [
+            'recall_id'   => $r->id,
+            'patient_id'  => $r->patient_id,
+            'patient_name'=> trim(($r->patient->first_name ?? '') . ' ' . ($r->patient->last_name ?? '')),
+            'due_date'    => $r->due_date?->toDateString(),
+            'days_overdue'=> $r->due_date ? max(0, now()->diffInDays($r->due_date, false) * -1) : 0,
+            'status'      => $r->status,
+            'notes'       => $r->notes,
+        ])->toArray();
+
+        $recallJson = json_encode($recallData, JSON_PRETTY_PRINT);
+        $count      = $recalls->count();
+
+        return <<<PROMPT
+A dental clinic has {$count} pending recalls that need to be prioritised for outreach.
+
+PENDING RECALLS:
+{$recallJson}
+
+Prioritise these recalls for the receptionist to contact patients. Consider:
+- Days overdue (higher = more urgent)
+- Patient notes suggesting clinical urgency
+- Balanced workload for contacting
+
+Return ONLY this JSON structure:
+{
+  "prioritised_recalls": [
+    {
+      "recall_id": number,
+      "priority_rank": number,
+      "priority_level": "urgent|high|medium|low",
+      "reason": "string explaining why this priority"
+    }
+  ],
+  "summary": {
+    "urgent_count": number,
+    "high_count": number,
+    "medium_count": number,
+    "low_count": number
+  },
+  "recommended_contact_order": [number],
+  "disclaimer": "AI-generated prioritisation for clinical workflow assistance only."
 }
 PROMPT;
     }

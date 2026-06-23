@@ -202,6 +202,8 @@ Route::prefix('v1')->group(function () {
         Route::middleware('token.ability:clinical:read')->group(function () {
             Route::get('patients/{patient}/ai-results', [AiAnalysisController::class, 'patientResults'])
                 ->name('patients.ai-results.index');
+            Route::get('patients/{patient}/ai-insights', [AiAnalysisController::class, 'patientInsights'])
+                ->name('patients.ai-insights');
         });
 
         // AI results actions — no ability middleware, policy handles it
@@ -211,6 +213,10 @@ Route::prefix('v1')->group(function () {
                 ->name('encounters.suggest-soap');
             Route::post('patients/{patient}/prescription-suggestions', [AiAnalysisController::class, 'suggestPrescription'])
                 ->name('patients.prescription-suggestions');
+            Route::post('perio-exams/{perioExam}/risk-score', [AiAnalysisController::class, 'scorePerioRisk'])
+                ->name('perio-exams.risk-score');
+            Route::post('recalls/ai-prioritize', [AiAnalysisController::class, 'prioritiseRecalls'])
+                ->name('recalls.ai-prioritize');
         });
 
         Route::get('ai-results/{result}',           [AiAnalysisController::class, 'show']);
