@@ -7,8 +7,11 @@ use App\Http\Resources\AiAnalysisResultResource;
 use App\Models\AiAnalysisResult;
 use App\Models\Encounter;
 use App\Models\Patient;
+use App\Models\Prescription;
+use App\Models\PrescriptionItem;
 use App\Models\PatientMedicalDocument;
 use App\Services\AiService;
+use Illuminate\Support\Facades\DB;
 use App\Services\FileStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -131,6 +134,116 @@ class AiAnalysisController extends Controller
         ]);
 
         return AiAnalysisResultResource::make($result->refresh()->load(['requestedBy', 'reviewedBy']));
+    }
+
+    // ── Phase 5C — Prescription suggestions ─────────────────────────────────
+
+    /**
+     * POST /patients/{patient}/prescription-suggestions
+     */
+    public function suggestPrescription(Request $request, Patient $patient): AiAnalysisResultResource
+    {
+        $this->authorize('create', AiAnalysisResult::class);
+
+        $request->validate([
+            'diagnosis'    => ['required', 'string', 'min:10', 'max:1000'],
+            'encounter_id' => ['nullable', 'integer', 'exists:encounters,id'],
+        ]);
+
+        $diagnosis   = $request->string('diagnosis')->toString();
+        $encounterId = $request->integer('encounter_id') ?: null;
+
+        // Deduplicate: if an identical pending suggestion exists for same patient+diagnosis, return it
+        $existing = AiAnalysisResult::query()
+            ->where('patient_id', $patient->id)
+            ->where('analysis_type', AiAnalysisResult::TYPE_PRESCRIPTION_SUGGESTION)
+            ->where('status', AiAnalysisResult::STATUS_PENDING)
+            ->where('input_summary', "Patient #{$patient->id} — diagnosis: {$diagnosis}")
+            ->first();
+
+        if ($existing) {
+            return AiAnalysisResultResource::make($existing->load(['requestedBy', 'reviewedBy']));
+        }
+
+        $result = $this->aiService->suggestPrescription(
+            $patient,
+            $diagnosis,
+            $request->user(),
+            $encounterId,
+        );
+
+        return AiAnalysisResultResource::make($result->load(['requestedBy', 'reviewedBy']));
+    }
+
+    /**
+     * POST /ai-results/{result}/create-prescription
+     * Provider accepts the suggestion and creates a real prescription record.
+     * The provider selects which suggested items to include.
+     */
+    public function createPrescription(Request $request, AiAnalysisResult $result): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('review', $result);
+
+        abort_if($result->analysis_type !== AiAnalysisResult::TYPE_PRESCRIPTION_SUGGESTION, 422, 'This action is only valid for prescription suggestions.');
+        abort_if($result->status !== AiAnalysisResult::STATUS_PENDING, 422, 'Only pending suggestions can be used to create a prescription.');
+
+        $request->validate([
+            'encounter_id'         => ['nullable', 'integer', 'exists:encounters,id'],
+            'notes'                => ['nullable', 'string'],
+            'reviewer_notes'       => ['nullable', 'string'],
+            'items'                => ['required', 'array', 'min:1'],
+            'items.*.drug_name'    => ['required', 'string', 'max:255'],
+            'items.*.dose'         => ['nullable', 'string', 'max:100'],
+            'items.*.frequency'    => ['nullable', 'string', 'max:100'],
+            'items.*.duration'     => ['nullable', 'string', 'max:100'],
+            'items.*.quantity'     => ['nullable', 'string', 'max:100'],
+            'items.*.instructions' => ['nullable', 'string'],
+        ]);
+
+        // Resolve provider_id from the requesting user
+        $provider = $request->user()->providerProfile;
+        abort_if(! $provider, 422, 'A provider profile is required to issue a prescription.');
+
+        $prescription = \Illuminate\Support\Facades\DB::transaction(function () use ($request, $result, $provider) {
+            $prescription = Prescription::create([
+                'patient_id'   => $result->patient_id,
+                'provider_id'  => $provider->id,
+                'encounter_id' => $request->integer('encounter_id') ?: null,
+                'issued_at'    => now(),
+                'notes'        => $request->input('notes'),
+            ]);
+
+            foreach ($request->input('items') as $item) {
+                PrescriptionItem::create([
+                    'prescription_id' => $prescription->id,
+                    'drug_name'       => $item['drug_name'],
+                    'dose'            => $item['dose'] ?? null,
+                    'frequency'       => $item['frequency'] ?? null,
+                    'duration'        => $item['duration'] ?? null,
+                    'quantity'        => $item['quantity'] ?? null,
+                    'instructions'    => $item['instructions'] ?? null,
+                ]);
+            }
+
+            $result->update([
+                'status'         => AiAnalysisResult::STATUS_ACCEPTED,
+                'reviewed_by'    => $request->user()->id,
+                'reviewed_at'    => now(),
+                'reviewer_notes' => $request->input('reviewer_notes'),
+            ]);
+
+            return $prescription;
+        });
+
+        return response()->json([
+            'message'      => 'Prescription created successfully.',
+            'prescription' => [
+                'id'         => $prescription->id,
+                'issued_at'  => $prescription->issued_at->toIso8601String(),
+                'items_count'=> $prescription->items()->count(),
+            ],
+            'ai_result' => AiAnalysisResultResource::make($result->refresh()->load(['requestedBy', 'reviewedBy'])),
+        ], 201);
     }
 
     // ── Shared list / show / review ───────────────────────────────────────────

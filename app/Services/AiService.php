@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AiAnalysisResult;
 use App\Models\Encounter;
+use App\Models\Patient;
 use App\Models\PatientMedicalDocument;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
@@ -65,6 +66,33 @@ class AiService
             'ai_provider'   => 'gemini',
             'ai_model'      => config('ai.models.text', 'gemini-2.0-flash'),
             'input_summary' => "Encounter #{$encounter->id} — {$encounter->encounter_date->toDateString()}",
+            'result'        => $rawResult,
+            'status'        => AiAnalysisResult::STATUS_PENDING,
+        ]);
+    }
+
+    // ── Prescription suggestion (Phase 5C) ──────────────────────────────────
+
+    public function suggestPrescription(
+        Patient $patient,
+        string $diagnosis,
+        User $requestedBy,
+        ?int $encounterId = null,
+    ): AiAnalysisResult {
+        $patient->loadMissing(['allergies', 'medications', 'conditions']);
+
+        $prompt    = $this->buildPrescriptionPrompt($patient, $diagnosis);
+        $rawResult = $this->callTextApi($prompt);
+
+        return AiAnalysisResult::create([
+            'patient_id'    => $patient->id,
+            'requested_by'  => $requestedBy->id,
+            'source_type'   => $encounterId ? 'encounter' : 'patient',
+            'source_id'     => $encounterId ?? $patient->id,
+            'analysis_type' => AiAnalysisResult::TYPE_PRESCRIPTION_SUGGESTION,
+            'ai_provider'   => 'gemini',
+            'ai_model'      => config('ai.models.text', 'gemini-2.0-flash'),
+            'input_summary' => "Patient #{$patient->id} — diagnosis: {$diagnosis}",
             'result'        => $rawResult,
             'status'        => AiAnalysisResult::STATUS_PENDING,
         ]);
@@ -234,6 +262,67 @@ Return ONLY this JSON structure:
   ],
   "clinical_notes": "any additional observations the dentist should consider",
   "disclaimer": "AI-generated suggestion for clinical review only. The treating dentist must review and modify before finalising."
+}
+PROMPT;
+    }
+
+    private function buildPrescriptionPrompt(Patient $patient, string $diagnosis): string
+    {
+        $allergies = $patient->allergies->pluck('allergen')->implode(', ') ?: 'None documented';
+
+        $currentMeds = $patient->medications
+            ->whereNull('end_date')
+            ->map(fn ($m) => "{$m->drug_name} {$m->dose}")
+            ->implode(', ') ?: 'None documented';
+
+        $conditions = $patient->conditions
+            ->where('status', 'active')
+            ->pluck('condition')->implode(', ') ?: 'None documented';
+
+        return <<<PROMPT
+A dentist needs prescription suggestions for the following dental case.
+
+PATIENT SAFETY INFORMATION:
+- Known drug allergies: {$allergies}
+- Current medications: {$currentMeds}
+- Active medical conditions: {$conditions}
+
+DIAGNOSIS / CLINICAL SITUATION:
+{$diagnosis}
+
+Suggest appropriate dental prescriptions. Check for interactions with current medications and contraindications based on allergies and conditions.
+
+Return ONLY this JSON structure:
+{
+  "suggested_items": [
+    {
+      "drug_name": "string",
+      "dose": "string (e.g. 500mg)",
+      "frequency": "string (e.g. three times daily)",
+      "duration": "string (e.g. 5 days)",
+      "quantity": "string (e.g. 15 tablets)",
+      "instructions": "string (e.g. Take with food)",
+      "indication": "string (why this drug is suggested)",
+      "confidence": "high|medium|low"
+    }
+  ],
+  "interaction_warnings": [
+    {
+      "drug": "string",
+      "interacts_with": "string",
+      "warning": "string",
+      "severity": "low|moderate|high"
+    }
+  ],
+  "contraindications": [
+    {
+      "drug": "string",
+      "reason": "string",
+      "severity": "low|moderate|high"
+    }
+  ],
+  "general_notes": "any additional clinical notes for the prescribing dentist",
+  "disclaimer": "AI-generated prescription suggestions for clinical review only. The prescribing dentist is solely responsible for all prescriptions issued. Always verify drug interactions and patient allergies before prescribing."
 }
 PROMPT;
     }
