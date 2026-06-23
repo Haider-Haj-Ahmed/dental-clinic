@@ -85,7 +85,7 @@ class User extends Authenticatable
                 'clinical:read',
                 'billing:read', 'billing:write',
                 'recalls:read', 'recalls:write',
-                'inventory:read',
+                'inventory:read', 'inventory:write',
                 'schedule-blocks:read', 'schedule-blocks:write',
             ],
 
