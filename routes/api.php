@@ -202,12 +202,28 @@ Route::prefix('v1')->group(function () {
         Route::middleware('token.ability:clinical:read')->group(function () {
             Route::get('patients/{patient}/ai-results', [AiAnalysisController::class, 'patientResults'])
                 ->name('patients.ai-results.index');
+            Route::get('patients/{patient}/ai-insights', [AiAnalysisController::class, 'patientInsights'])
+                ->name('patients.ai-insights');
         });
 
         // AI results actions — no ability middleware, policy handles it
-        Route::get('ai-results/{result}',          [AiAnalysisController::class, 'show']);
-        Route::post('ai-results/{result}/accept',  [AiAnalysisController::class, 'accept']);
-        Route::post('ai-results/{result}/dismiss', [AiAnalysisController::class, 'dismiss']);
+        // SOAP suggestion — clinical:write required
+        Route::middleware('token.ability:clinical:write')->group(function () {
+            Route::post('encounters/{encounter}/suggest-soap', [AiAnalysisController::class, 'suggestSoap'])
+                ->name('encounters.suggest-soap');
+            Route::post('patients/{patient}/prescription-suggestions', [AiAnalysisController::class, 'suggestPrescription'])
+                ->name('patients.prescription-suggestions');
+            Route::post('perio-exams/{perioExam}/risk-score', [AiAnalysisController::class, 'scorePerioRisk'])
+                ->name('perio-exams.risk-score');
+            Route::post('recalls/ai-prioritize', [AiAnalysisController::class, 'prioritiseRecalls'])
+                ->name('recalls.ai-prioritize');
+        });
+
+        Route::get('ai-results/{result}',           [AiAnalysisController::class, 'show']);
+        Route::post('ai-results/{result}/accept',   [AiAnalysisController::class, 'accept']);
+        Route::post('ai-results/{result}/dismiss',  [AiAnalysisController::class, 'dismiss']);
+        Route::post('ai-results/{result}/apply-soap',          [AiAnalysisController::class, 'applySoap']);
+        Route::post('ai-results/{result}/create-prescription', [AiAnalysisController::class, 'createPrescription']);
 
         // ── Audit logs (owner only — policy-enforced) ─────────────────────────
         Route::get('audit-logs',            [AuditLogController::class, 'index']);

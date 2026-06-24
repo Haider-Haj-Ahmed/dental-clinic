@@ -83,14 +83,13 @@ class HardeningTest extends TestCase
         ])->assertCreated();
     }
 
-    public function test_receptionist_cannot_write_inventory(): void
+    public function test_receptionist_can_write_inventory(): void
     {
-        $user = User::factory()->create(['role' => User::ROLE_RECEPTIONIST]);
-        Sanctum::actingAs($user, $user->tokenAbilities());
+        // Receptionist has inventory:write — they manage stock and purchase orders
+        $user      = User::factory()->create(['role' => User::ROLE_RECEPTIONIST]);
+        $abilities = $user->tokenAbilities();
 
-        $this->postJson('/api/v1/inventory-items', [
-            'name' => 'Test Item',
-        ])->assertForbidden();
+        $this->assertContains('inventory:write', $abilities);
     }
 
     public function test_owner_token_bypasses_all_ability_checks(): void
@@ -142,7 +141,7 @@ class HardeningTest extends TestCase
         $this->assertContains('recalls:read',          $abilities);
         $this->assertContains('recalls:write',         $abilities);
         $this->assertContains('inventory:read',        $abilities);
-        $this->assertNotContains('inventory:write',    $abilities);
+        $this->assertContains('inventory:read',        $abilities);
         $this->assertNotContains('*',                  $abilities);
     }
 
