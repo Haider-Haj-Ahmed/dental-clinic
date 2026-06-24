@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Haider-Haj-Ahmed/dental-clinic/main/.github/social-preview.png" alt="Dental Clinic PMS" width="100%"/>
+  <img src="https://raw.githubusercontent.com/Haider-Haj-Ahmed/dental-clinic/main/public/dental-pms.png" alt="Dental Clinic PMS" width="100%"/>
 </p>
 
 <h1 align="center">dental-clinic</h1>
