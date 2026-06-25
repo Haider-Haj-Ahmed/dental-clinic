@@ -7,6 +7,11 @@ use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommunicationLogController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\EncounterController;
+use App\Http\Controllers\Api\OdontogramController;
+use App\Http\Controllers\Api\PerioExamController;
+use App\Http\Controllers\Api\PrescriptionController;
+use App\Http\Controllers\Api\TreatmentPlanController;
 use App\Http\Controllers\Api\InventoryItemController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\InvoiceItemController;
@@ -180,7 +185,12 @@ Route::prefix('v1')->group(function () {
 
         // ── Clinical (provider-facing) ────────────────────────────────────────
         Route::middleware('token.ability:clinical:read')->group(function () {
-            // clinical read routes will be wired in Phase 5 (clinical core)
+            Route::apiResource('encounters', EncounterController::class)->only(['index', 'show']);
+            Route::get('encounters/{encounter}/odontogram-entries', [OdontogramController::class, 'encounterEntries']);
+            Route::get('patients/{patient}/odontogram', [OdontogramController::class, 'patientOdontogram']);
+            Route::apiResource('perio-exams', PerioExamController::class)->only(['index', 'show']);
+            Route::apiResource('treatment-plans', TreatmentPlanController::class)->only(['index', 'show']);
+            Route::apiResource('prescriptions', PrescriptionController::class)->only(['index', 'show']);
         });
 
         // ── Dashboard & reports (owner + receptionist — policy-enforced) ──────
@@ -209,6 +219,31 @@ Route::prefix('v1')->group(function () {
         // AI results actions — no ability middleware, policy handles it
         // SOAP suggestion — clinical:write required
         Route::middleware('token.ability:clinical:write')->group(function () {
+            // Encounters
+            Route::apiResource('encounters', EncounterController::class)->only(['store', 'update', 'destroy']);
+            Route::post('encounters/{encounter}/lock',   [EncounterController::class, 'lock']);
+            Route::post('encounters/{encounter}/unlock', [EncounterController::class, 'unlock']);
+
+            // Odontogram
+            Route::post('encounters/{encounter}/odontogram-entries', [OdontogramController::class, 'store']);
+            Route::put('odontogram-entries/{odontogramEntry}',    [OdontogramController::class, 'update']);
+            Route::delete('odontogram-entries/{odontogramEntry}', [OdontogramController::class, 'destroy']);
+
+            // Perio
+            Route::apiResource('perio-exams', PerioExamController::class)->only(['store', 'update', 'destroy']);
+            Route::post('perio-exams/{perioExam}/measures',                  [PerioExamController::class, 'storeMeasure']);
+            Route::delete('perio-exams/{perioExam}/measures/{measure}',      [PerioExamController::class, 'destroyMeasure']);
+
+            // Treatment plans
+            Route::apiResource('treatment-plans', TreatmentPlanController::class)->only(['store', 'update', 'destroy']);
+            Route::post('treatment-plans/{treatmentPlan}/present', [TreatmentPlanController::class, 'present']);
+            Route::post('treatment-plans/{treatmentPlan}/accept',  [TreatmentPlanController::class, 'accept']);
+            Route::post('treatment-plans/{treatmentPlan}/reject',  [TreatmentPlanController::class, 'reject']);
+
+            // Prescriptions
+            Route::apiResource('prescriptions', PrescriptionController::class)->only(['store', 'update', 'destroy']);
+
+            // AI clinical endpoints
             Route::post('encounters/{encounter}/suggest-soap', [AiAnalysisController::class, 'suggestSoap'])
                 ->name('encounters.suggest-soap');
             Route::post('patients/{patient}/prescription-suggestions', [AiAnalysisController::class, 'suggestPrescription'])

@@ -29,6 +29,11 @@ use App\Models\User;
 use App\Observers\AuditObserver;
 use App\Policies\AppointmentPolicy;
 use App\Policies\AppointmentTypePolicy;
+use App\Policies\EncounterPolicy;
+use App\Policies\OdontogramEntryPolicy;
+use App\Policies\PerioExamPolicy;
+use App\Policies\PrescriptionPolicy;
+use App\Policies\TreatmentPlanPolicy;
 use App\Policies\AiAnalysisResultPolicy;
 use App\Policies\AuditLogPolicy;
 use App\Policies\CommunicationLogPolicy;
@@ -53,6 +58,11 @@ use App\Policies\RecallPolicy;
 use App\Policies\ScheduleBlockPolicy;
 use App\Policies\SupplierPolicy;
 use App\Policies\UserPolicy;
+use App\Models\Encounter;
+use App\Models\OdontogramEntry;
+use App\Models\PerioExam;
+use App\Models\Prescription;
+use App\Models\TreatmentPlan;
 use App\Models\AiAnalysisResult;
 use App\Models\AuditLog;
 use Illuminate\Support\Facades\Gate;
@@ -90,6 +100,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(InventoryItem::class,          InventoryItemPolicy::class);
         Gate::policy(PurchaseOrder::class,          PurchaseOrderPolicy::class);
         Gate::policy(AuditLog::class,               AuditLogPolicy::class);
+        Gate::policy(Encounter::class,         EncounterPolicy::class);
+        Gate::policy(OdontogramEntry::class,    OdontogramEntryPolicy::class);
+        Gate::policy(PerioExam::class,          PerioExamPolicy::class);
+        Gate::policy(TreatmentPlan::class,      TreatmentPlanPolicy::class);
+        Gate::policy(Prescription::class,       PrescriptionPolicy::class);
         Gate::policy(AiAnalysisResult::class,      AiAnalysisResultPolicy::class);
 
         // Owner bypasses all policy checks
@@ -113,6 +128,9 @@ class AppServiceProvider extends ServiceProvider
             InventoryItem::class,
             PurchaseOrder::class,
             User::class,
+            Encounter::class,
+            TreatmentPlan::class,
+            Prescription::class,
             AiAnalysisResult::class,
         ];
 
