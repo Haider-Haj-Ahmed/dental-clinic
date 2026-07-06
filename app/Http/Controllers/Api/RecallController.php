@@ -103,7 +103,7 @@ class RecallController extends Controller
             'last_reminder_sent_at' => now(),
         ]);
 
-        return response()->json(['message' => 'Reminder queued successfully.']);
+        return $this->successResponse(message: 'Reminder queued successfully.');
     }
 
     public function destroy(Recall $recall): Response

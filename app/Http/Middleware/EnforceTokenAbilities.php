@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Concerns\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -12,6 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnforceTokenAbilities
 {
+    use ApiResponse;
+
     public function handle(Request $request, Closure $next, string $ability): Response
     {
         $user = $request->user();
@@ -26,9 +29,10 @@ class EnforceTokenAbilities
         }
 
         if (! $user->tokenCan($ability)) {
-            return response()->json([
-                'message' => 'This action is not authorized for your token scope.',
-            ], Response::HTTP_FORBIDDEN);
+            return $this->errorResponse(
+                'This action is not authorized for your token scope.',
+                Response::HTTP_FORBIDDEN
+            );
         }
 
         return $next($request);

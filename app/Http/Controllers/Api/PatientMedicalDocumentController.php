@@ -108,7 +108,7 @@ class PatientMedicalDocumentController extends Controller
 
         abort_unless($this->storage->exists($document->file_path), 404, 'File not found on disk.');
 
-        return response()->json([
+        return $this->successResponse([
             'url'        => $this->storage->temporaryUrl($document->file_path),
             'expires_in' => 1800, // 30 minutes in seconds
             'mime_type'  => $document->mime_type,

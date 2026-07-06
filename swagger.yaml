@@ -1,0 +1,559 @@
+openapi: 3.0.3
+info:
+  title: Dental Clinic API
+  version: 1.0.0
+  description: >
+    REST API for dental practice management. All authenticated routes are under
+    `/api/v1` and use Sanctum bearer tokens.
+servers:
+  - url: /api/v1
+tags:
+  - name: Auth
+  - name: Patients
+  - name: Appointments
+  - name: Billing
+  - name: Inventory
+  - name: AI
+  - name: Reports
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Login and create access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, device_name]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+                device_name: { type: string }
+      responses:
+        '200':
+          description: Authenticated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          token: { type: string }
+                          token_type: { type: string, example: "Bearer" }
+                          abilities:
+                            type: array
+                            items: { type: string }
+                          user:
+                            $ref: '#/components/schemas/User'
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Current authenticated user
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke current token
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiSuccess' }
+  /auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Revoke all user tokens
+      responses:
+        '200':
+          description: All sessions revoked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiSuccess' }
+  /patients:
+    get:
+      tags: [Patients]
+      summary: List patients
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        '200':
+          description: Patient list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaravelPaginatedPatientResource' }
+    post:
+      tags: [Patients]
+      summary: Create patient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatientUpsert' }
+      responses:
+        '201':
+          description: Patient created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PatientResource' }
+  /patients/{patientId}:
+    get:
+      tags: [Patients]
+      summary: Get patient details
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '200':
+          description: Patient details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PatientResource' }
+    put:
+      tags: [Patients]
+      summary: Update patient
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatientUpsert' }
+      responses:
+        '200':
+          description: Patient updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PatientResource' }
+    delete:
+      tags: [Patients]
+      summary: Soft-delete patient
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '204':
+          description: Patient archived
+  /patients/{patientId}/timeline:
+    get:
+      tags: [Patients]
+      summary: Unified patient timeline
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Timeline entries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type: { type: string }
+                            date: { type: string, format: date-time }
+                            data: { type: object, additionalProperties: true }
+                      meta: { $ref: '#/components/schemas/PaginationMeta' }
+  /patients/{patientId}/documents/{documentId}/download:
+    get:
+      tags: [Patients]
+      summary: Get temporary download URL for medical document
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Signed URL
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          url: { type: string }
+                          expires_in: { type: integer }
+                          mime_type: { type: string }
+                          title: { type: string }
+  /appointments:
+    get:
+      tags: [Appointments]
+      summary: List appointments
+      responses:
+        '200':
+          description: Appointment list
+    post:
+      tags: [Appointments]
+      summary: Create appointment
+      responses:
+        '201':
+          description: Appointment created
+  /recalls/due:
+    get:
+      tags: [Appointments]
+      summary: List due recalls
+      responses:
+        '200':
+          description: Due recalls
+  /recalls/{recallId}/send-reminder:
+    post:
+      tags: [Appointments]
+      summary: Queue recall reminder
+      parameters:
+        - name: recallId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Reminder queued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiSuccess' }
+  /invoices:
+    get:
+      tags: [Billing]
+      summary: List invoices
+      responses:
+        '200':
+          description: Invoice list
+    post:
+      tags: [Billing]
+      summary: Create invoice
+      responses:
+        '201':
+          description: Invoice created
+  /invoices/{invoiceId}/finalize:
+    post:
+      tags: [Billing]
+      summary: Finalize invoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Invoice finalized
+  /invoices/{invoiceId}/void:
+    post:
+      tags: [Billing]
+      summary: Void invoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Invoice voided
+  /patients/{patientId}/ledger:
+    get:
+      tags: [Billing]
+      summary: Patient billing ledger
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '200':
+          description: Ledger summary and items
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccess'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items: { type: object, additionalProperties: true }
+                          summary:
+                            type: object
+                            properties:
+                              total_billed: { type: number }
+                              total_paid: { type: number }
+                              outstanding: { type: number }
+                      meta: { $ref: '#/components/schemas/PaginationMeta' }
+  /inventory-items/low-stock:
+    get:
+      tags: [Inventory]
+      summary: List low-stock items
+      responses:
+        '200':
+          description: Low-stock list
+  /inventory-items/{inventoryItemId}/adjust-stock:
+    post:
+      tags: [Inventory]
+      summary: Adjust stock quantity
+      parameters:
+        - name: inventoryItemId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [movement_type, quantity]
+              properties:
+                movement_type: { type: string }
+                quantity: { type: integer }
+                reason: { type: string }
+                reference: { type: string }
+      responses:
+        '200':
+          description: Stock adjusted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiSuccess' }
+  /patients/{patientId}/documents/{documentId}/analyze:
+    post:
+      tags: [AI]
+      summary: Analyze dental image document with AI
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: AI result
+  /encounters/{encounterId}/suggest-soap:
+    post:
+      tags: [AI]
+      summary: Generate SOAP suggestion
+      parameters:
+        - name: encounterId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: AI SOAP suggestion
+  /patients/{patientId}/prescription-suggestions:
+    post:
+      tags: [AI]
+      summary: Generate prescription suggestion
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [diagnosis]
+              properties:
+                diagnosis: { type: string }
+                encounter_id: { type: integer, nullable: true }
+      responses:
+        '200':
+          description: AI prescription suggestion
+  /ai-results/{resultId}/create-prescription:
+    post:
+      tags: [AI]
+      summary: Accept AI suggestion and create prescription
+      parameters:
+        - name: resultId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                encounter_id: { type: integer, nullable: true }
+                notes: { type: string, nullable: true }
+                reviewer_notes: { type: string, nullable: true }
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [drug_name]
+                    properties:
+                      drug_name: { type: string }
+                      dose: { type: string, nullable: true }
+                      frequency: { type: string, nullable: true }
+                      duration: { type: string, nullable: true }
+                      quantity: { type: string, nullable: true }
+                      instructions: { type: string, nullable: true }
+      responses:
+        '201':
+          description: Prescription created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiSuccess' }
+  /dashboard/kpis:
+    get:
+      tags: [Reports]
+      summary: Dashboard KPIs
+      responses:
+        '200':
+          description: KPI values
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiSuccess' }
+  /reports/appointments:
+    get:
+      tags: [Reports]
+      summary: Appointments report
+      responses:
+        '200':
+          description: Report payload
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiSuccess' }
+  /reports/production:
+    get:
+      tags: [Reports]
+      summary: Production report
+      responses:
+        '200':
+          description: Report payload
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiSuccess' }
+  /reports/collections:
+    get:
+      tags: [Reports]
+      summary: Collections report
+      responses:
+        '200':
+          description: Report payload
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiSuccess' }
+  /reports/recall-performance:
+    get:
+      tags: [Reports]
+      summary: Recall performance report
+      responses:
+        '200':
+          description: Report payload
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiSuccess' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: token
+  parameters:
+    PatientId:
+      name: patientId
+      in: path
+      required: true
+      schema: { type: integer }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1 }
+    PerPage:
+      name: per_page
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100 }
+  schemas:
+    ApiSuccess:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string, nullable: true }
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+        meta:
+          type: object
+          nullable: true
+          additionalProperties: true
+    PaginationMeta:
+      type: object
+      properties:
+        current_page: { type: integer }
+        per_page: { type: integer }
+        total: { type: integer }
+        last_page: { type: integer }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PatientResource:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            id: { type: integer }
+            first_name: { type: string }
+            last_name: { type: string }
+            phone: { type: string, nullable: true }
+            email: { type: string, format: email, nullable: true }
+            date_of_birth: { type: string, format: date, nullable: true }
+    LaravelPaginatedPatientResource:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        links:
+          type: object
+          additionalProperties: true
+        meta:
+          type: object
+          additionalProperties: true
+    PatientUpsert:
+      type: object
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        phone: { type: string, nullable: true }
+        email: { type: string, format: email, nullable: true }
+        date_of_birth: { type: string, format: date, nullable: true }

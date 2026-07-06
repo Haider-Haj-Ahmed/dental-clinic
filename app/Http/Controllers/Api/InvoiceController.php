@@ -134,19 +134,23 @@ class InvoiceController extends Controller
             ->where('patient_id', $patient->id)
             ->sum('amount');
 
-        return response()->json([
-            'data'    => InvoiceResource::collection($invoices)->resolve(),
-            'summary' => [
-                'total_billed'     => (float) ($totals->total_billed ?? 0),
-                'total_paid'       => (float) $totalPaid,
-                'outstanding'      => (float) (($totals->total_billed ?? 0) - $totalPaid),
+        return $this->successResponse(
+            [
+                'items' => InvoiceResource::collection($invoices)->resolve(),
+                'summary' => [
+                    'total_billed' => (float) ($totals->total_billed ?? 0),
+                    'total_paid'   => (float) $totalPaid,
+                    'outstanding'  => (float) (($totals->total_billed ?? 0) - $totalPaid),
+                ],
             ],
-            'meta' => [
+            null,
+            200,
+            [
                 'current_page' => $invoices->currentPage(),
                 'last_page'    => $invoices->lastPage(),
                 'total'        => $invoices->total(),
                 'per_page'     => $invoices->perPage(),
-            ],
-        ]);
+            ]
+        );
     }
 }

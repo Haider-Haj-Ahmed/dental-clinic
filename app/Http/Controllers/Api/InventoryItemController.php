@@ -111,11 +111,10 @@ class InventoryItemController extends Controller
             ]);
         });
 
-        return response()->json([
-            'message'       => 'Stock adjusted successfully.',
+        return $this->successResponse([
             'current_stock' => $inventoryItem->fresh()->current_stock,
             'movement'      => StockMovementResource::make($movement->load('performedBy')),
-        ]);
+        ], 'Stock adjusted successfully.');
     }
 
     /** GET /inventory-items/{inventoryItem}/movements */

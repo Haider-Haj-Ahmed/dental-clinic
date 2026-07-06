@@ -75,7 +75,7 @@ class PatientController extends Controller
 
         $patient->delete();
 
-        return response()->json(['message' => 'Patient archived.']);
+        return $this->successResponse(message: 'Patient archived.');
     }
 
     /** POST /patients/{patient}/restore */

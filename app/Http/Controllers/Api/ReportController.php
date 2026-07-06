@@ -36,44 +36,44 @@ class ReportController extends Controller
     {
         $this->authorizeReports($request);
 
-        return response()->json([
-            'data' => $this->reports->appointmentsReport($this->dateFilters($request)),
-        ]);
+        return $this->successResponse(
+            $this->reports->appointmentsReport($this->dateFilters($request))
+        );
     }
 
     public function production(Request $request): JsonResponse
     {
         $this->authorizeReports($request);
 
-        return response()->json([
-            'data' => $this->reports->productionReport($this->dateFilters($request)),
-        ]);
+        return $this->successResponse(
+            $this->reports->productionReport($this->dateFilters($request))
+        );
     }
 
     public function collections(Request $request): JsonResponse
     {
         $this->authorizeReports($request);
 
-        return response()->json([
-            'data' => $this->reports->collectionsReport($this->dateFilters($request)),
-        ]);
+        return $this->successResponse(
+            $this->reports->collectionsReport($this->dateFilters($request))
+        );
     }
 
     public function recallPerformance(Request $request): JsonResponse
     {
         $this->authorizeReports($request);
 
-        return response()->json([
-            'data' => $this->reports->recallPerformanceReport($this->dateFilters($request)),
-        ]);
+        return $this->successResponse(
+            $this->reports->recallPerformanceReport($this->dateFilters($request))
+        );
     }
 
     public function inventory(Request $request): JsonResponse
     {
         $this->authorizeReports($request);
 
-        return response()->json([
-            'data' => $this->reports->inventoryReport($this->dateFilters($request)),
-        ]);
+        return $this->successResponse(
+            $this->reports->inventoryReport($this->dateFilters($request))
+        );
     }
 }

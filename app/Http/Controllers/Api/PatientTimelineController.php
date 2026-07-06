@@ -158,21 +158,23 @@ class PatientTimelineController extends Controller
         $total   = $sorted->count();
         $sliced  = $sorted->slice(($page - 1) * $perPage, $perPage)->values();
 
-        return response()->json([
-            'data' => $sliced->map(fn ($item) => [
+        return $this->successResponse(
+            $sliced->map(fn ($item) => [
                 'type' => $item['type'],
                 'date' => $item['date'] instanceof \Illuminate\Support\Carbon
                     ? $item['date']->toIso8601String()
                     : (string) $item['date'],
                 'data' => $item['data'],
             ]),
-            'meta' => [
+            null,
+            200,
+            [
                 'current_page' => $page,
                 'per_page'     => $perPage,
                 'total'        => $total,
                 'last_page'    => (int) ceil($total / $perPage),
                 'types'        => $types,
             ],
-        ]);
+        );
     }
 }

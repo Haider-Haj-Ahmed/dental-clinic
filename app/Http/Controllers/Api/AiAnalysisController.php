@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use App\Services\FileStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rule;
 
 class AiAnalysisController extends Controller
 {
@@ -149,7 +150,13 @@ class AiAnalysisController extends Controller
 
         $request->validate([
             'diagnosis'    => ['required', 'string', 'min:10', 'max:1000'],
-            'encounter_id' => ['nullable', 'integer', 'exists:encounters,id'],
+            'encounter_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('encounters', 'id')->where(
+                    fn ($query) => $query->where('patient_id', $patient->id)
+                ),
+            ],
         ]);
 
         $diagnosis   = $request->string('diagnosis')->toString();
@@ -190,7 +197,13 @@ class AiAnalysisController extends Controller
         abort_if($result->status !== AiAnalysisResult::STATUS_PENDING, 422, 'Only pending suggestions can be used to create a prescription.');
 
         $request->validate([
-            'encounter_id'         => ['nullable', 'integer', 'exists:encounters,id'],
+            'encounter_id'         => [
+                'nullable',
+                'integer',
+                Rule::exists('encounters', 'id')->where(
+                    fn ($query) => $query->where('patient_id', $result->patient_id)
+                ),
+            ],
             'notes'                => ['nullable', 'string'],
             'reviewer_notes'       => ['nullable', 'string'],
             'items'                => ['required', 'array', 'min:1'],
@@ -237,15 +250,14 @@ class AiAnalysisController extends Controller
             return $prescription;
         });
 
-        return response()->json([
-            'message'      => 'Prescription created successfully.',
+        return $this->successResponse([
             'prescription' => [
                 'id'         => $prescription->id,
                 'issued_at'  => $prescription->issued_at->toIso8601String(),
                 'items_count'=> $prescription->items()->count(),
             ],
             'ai_result' => AiAnalysisResultResource::make($result->refresh()->load(['requestedBy', 'reviewedBy'])),
-        ], 201);
+        ], 'Prescription created successfully.', 201);
     }
 
     // ── Phase 5D — Perio risk scoring ───────────────────────────────────────
@@ -316,7 +328,7 @@ class AiAnalysisController extends Controller
         $riskLevel   = $latestPerio['result']['risk_level'] ?? null;
         $riskScore   = $latestPerio['result']['risk_score'] ?? null;
 
-        return response()->json([
+        return $this->successResponse([
             'patient_id'  => $patient->id,
             'risk_summary'=> [
                 'perio_risk_level' => $riskLevel,

@@ -19,8 +19,6 @@ class DashboardController extends Controller
             403
         );
 
-        return response()->json([
-            'data' => $this->reports->dashboardKpis(),
-        ]);
+        return $this->successResponse($this->reports->dashboardKpis());
     }
 }
