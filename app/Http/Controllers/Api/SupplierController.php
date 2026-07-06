@@ -58,6 +58,6 @@ class SupplierController extends Controller
 
         $supplier->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

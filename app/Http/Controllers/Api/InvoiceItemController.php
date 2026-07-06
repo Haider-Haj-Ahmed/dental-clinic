@@ -62,6 +62,6 @@ class InvoiceItemController extends Controller
         $item->delete();
         $invoice->recalculateTotals();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

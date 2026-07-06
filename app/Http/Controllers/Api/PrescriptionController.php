@@ -81,6 +81,6 @@ class PrescriptionController extends Controller
     {
         $prescription->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

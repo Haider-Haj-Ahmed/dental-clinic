@@ -59,6 +59,6 @@ class ScheduleBlockController extends Controller
     {
         $scheduleBlock->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

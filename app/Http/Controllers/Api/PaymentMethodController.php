@@ -52,6 +52,6 @@ class PaymentMethodController extends Controller
 
         $paymentMethod->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

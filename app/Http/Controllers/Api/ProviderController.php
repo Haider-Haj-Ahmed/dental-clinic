@@ -64,6 +64,6 @@ class ProviderController extends Controller
     {
         $provider->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

@@ -62,7 +62,7 @@ class EncounterController extends Controller
 
         $encounter->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 
     /** POST /encounters/{encounter}/lock */

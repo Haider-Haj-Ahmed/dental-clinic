@@ -94,7 +94,7 @@ class PatientMedicalDocumentController extends Controller
         $this->storage->delete($document->file_path);
         $document->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 
     /**

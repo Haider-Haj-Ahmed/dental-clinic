@@ -58,6 +58,6 @@ class ProcedureCodeController extends Controller
     {
         $procedureCode->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

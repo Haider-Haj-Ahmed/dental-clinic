@@ -52,6 +52,6 @@ class AppointmentTypeController extends Controller
     {
         $appointmentType->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

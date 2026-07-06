@@ -61,6 +61,6 @@ class PatientMedicationController extends Controller
 
         $medication->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

@@ -71,7 +71,7 @@ class TreatmentPlanController extends Controller
     {
         $treatmentPlan->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 
     /** POST /treatment-plans/{treatmentPlan}/present */

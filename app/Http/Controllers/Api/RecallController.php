@@ -110,6 +110,6 @@ class RecallController extends Controller
     {
         $recall->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

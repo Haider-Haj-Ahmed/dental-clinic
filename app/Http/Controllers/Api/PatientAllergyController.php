@@ -57,6 +57,6 @@ class PatientAllergyController extends Controller
 
         $allergy->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

@@ -68,6 +68,6 @@ class PaymentPlanController extends Controller
 
         $paymentPlan->update(['status' => PaymentPlan::STATUS_CANCELLED]);
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

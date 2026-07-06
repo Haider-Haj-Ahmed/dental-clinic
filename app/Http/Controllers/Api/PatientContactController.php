@@ -57,7 +57,7 @@ class PatientContactController extends Controller
 
         $contact->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 
     private function assertBelongsToPatient(int $recordPatientId, int $routePatientId): void

@@ -79,6 +79,6 @@ class PatientMedicalCaseController extends Controller
 
         $medicalCase->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

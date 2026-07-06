@@ -65,7 +65,7 @@ class PatientController extends Controller
     {
         $patient->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 
     /** POST /patients/{patient}/archive */

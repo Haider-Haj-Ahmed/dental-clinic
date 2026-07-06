@@ -84,7 +84,7 @@ class InventoryItemController extends Controller
 
         $inventoryItem->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 
     /** POST /inventory-items/{inventoryItem}/adjust-stock */

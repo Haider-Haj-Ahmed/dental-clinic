@@ -128,6 +128,6 @@ class PurchaseOrderController extends Controller
 
         $purchaseOrder->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

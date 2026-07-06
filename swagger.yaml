@@ -2,27 +2,31 @@ openapi: 3.0.3
 info:
   title: Dental Clinic API
   version: 1.0.0
-  description: >
-    REST API for dental practice management. All authenticated routes are under
-    `/api/v1` and use Sanctum bearer tokens.
+  description: Comprehensive API contract for all `/api/v1` routes.
 servers:
   - url: /api/v1
-tags:
-  - name: Auth
-  - name: Patients
-  - name: Appointments
-  - name: Billing
-  - name: Inventory
-  - name: AI
-  - name: Reports
 security:
   - bearerAuth: []
+tags:
+  - { name: Auth }
+  - { name: Users }
+  - { name: Config }
+  - { name: Patients }
+  - { name: Appointments }
+  - { name: Scheduling }
+  - { name: Recalls }
+  - { name: Billing }
+  - { name: Inventory }
+  - { name: Clinical }
+  - { name: AI }
+  - { name: Reports }
+  - { name: Audit }
 paths:
   /auth/login:
     post:
       tags: [Auth]
       security: []
-      summary: Login and create access token
+      summary: Login and issue token
       requestBody:
         required: true
         content:
@@ -35,525 +39,421 @@ paths:
                 password: { type: string, format: password }
                 device_name: { type: string }
       responses:
-        '200':
-          description: Authenticated successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/ApiSuccess'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          token: { type: string }
-                          token_type: { type: string, example: "Bearer" }
-                          abilities:
-                            type: array
-                            items: { type: string }
-                          user:
-                            $ref: '#/components/schemas/User'
+        '200': { $ref: '#/components/responses/Ok' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /auth/me:
     get:
       tags: [Auth]
       summary: Current authenticated user
       responses:
-        '200':
-          description: User profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
+        '200': { $ref: '#/components/responses/Ok' }
   /auth/logout:
     post:
       tags: [Auth]
-      summary: Revoke current token
+      summary: Logout current token
       responses:
-        '200':
-          description: Logout successful
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiSuccess' }
+        '200': { $ref: '#/components/responses/Ok' }
   /auth/logout-all:
     post:
       tags: [Auth]
-      summary: Revoke all user tokens
+      summary: Logout all sessions
       responses:
-        '200':
-          description: All sessions revoked
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiSuccess' }
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /users:
+    get: { tags: [Users], summary: List users, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Users], summary: Create user, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /users/{user}:
+    get: { tags: [Users], summary: Show user, parameters: [{ $ref: '#/components/parameters/UserId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Users], summary: Update user, parameters: [{ $ref: '#/components/parameters/UserId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Users], summary: Delete user, parameters: [{ $ref: '#/components/parameters/UserId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /operatories:
+    get: { tags: [Config], summary: List operatories, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Config], summary: Create operatory, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /operatories/{operatory}:
+    get: { tags: [Config], summary: Show operatory, parameters: [{ $ref: '#/components/parameters/OperatoryId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Config], summary: Update operatory, parameters: [{ $ref: '#/components/parameters/OperatoryId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Config], summary: Delete operatory, parameters: [{ $ref: '#/components/parameters/OperatoryId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /appointment-types:
+    get: { tags: [Config], summary: List appointment types, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Config], summary: Create appointment type, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /appointment-types/{appointmentType}:
+    get: { tags: [Config], summary: Show appointment type, parameters: [{ $ref: '#/components/parameters/AppointmentTypeId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Config], summary: Update appointment type, parameters: [{ $ref: '#/components/parameters/AppointmentTypeId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Config], summary: Delete appointment type, parameters: [{ $ref: '#/components/parameters/AppointmentTypeId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /procedure-codes:
+    get: { tags: [Config], summary: List procedure codes, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Config], summary: Create procedure code, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /procedure-codes/{procedureCode}:
+    get: { tags: [Config], summary: Show procedure code, parameters: [{ $ref: '#/components/parameters/ProcedureCodeId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Config], summary: Update procedure code, parameters: [{ $ref: '#/components/parameters/ProcedureCodeId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Config], summary: Delete procedure code, parameters: [{ $ref: '#/components/parameters/ProcedureCodeId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /payment-methods:
+    get: { tags: [Config], summary: List payment methods, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Config], summary: Create payment method, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /payment-methods/{paymentMethod}:
+    get: { tags: [Config], summary: Show payment method, parameters: [{ $ref: '#/components/parameters/PaymentMethodId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Config], summary: Update payment method, parameters: [{ $ref: '#/components/parameters/PaymentMethodId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Config], summary: Delete payment method, parameters: [{ $ref: '#/components/parameters/PaymentMethodId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /providers:
+    get: { tags: [Users], summary: List providers, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Users], summary: Create provider, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /providers/{provider}:
+    get: { tags: [Users], summary: Show provider, parameters: [{ $ref: '#/components/parameters/ProviderId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Users], summary: Update provider, parameters: [{ $ref: '#/components/parameters/ProviderId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Users], summary: Delete provider, parameters: [{ $ref: '#/components/parameters/ProviderId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
   /patients:
-    get:
-      tags: [Patients]
-      summary: List patients
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PerPage'
-        - in: query
-          name: search
-          schema: { type: string }
-      responses:
-        '200':
-          description: Patient list
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/LaravelPaginatedPatientResource' }
-    post:
-      tags: [Patients]
-      summary: Create patient
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/PatientUpsert' }
-      responses:
-        '201':
-          description: Patient created
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PatientResource' }
-  /patients/{patientId}:
-    get:
-      tags: [Patients]
-      summary: Get patient details
-      parameters:
-        - $ref: '#/components/parameters/PatientId'
-      responses:
-        '200':
-          description: Patient details
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PatientResource' }
-    put:
-      tags: [Patients]
-      summary: Update patient
-      parameters:
-        - $ref: '#/components/parameters/PatientId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/PatientUpsert' }
-      responses:
-        '200':
-          description: Patient updated
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PatientResource' }
-    delete:
-      tags: [Patients]
-      summary: Soft-delete patient
-      parameters:
-        - $ref: '#/components/parameters/PatientId'
-      responses:
-        '204':
-          description: Patient archived
-  /patients/{patientId}/timeline:
-    get:
-      tags: [Patients]
-      summary: Unified patient timeline
-      parameters:
-        - $ref: '#/components/parameters/PatientId'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PerPage'
-      responses:
-        '200':
-          description: Timeline entries
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/ApiSuccess'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            type: { type: string }
-                            date: { type: string, format: date-time }
-                            data: { type: object, additionalProperties: true }
-                      meta: { $ref: '#/components/schemas/PaginationMeta' }
-  /patients/{patientId}/documents/{documentId}/download:
-    get:
-      tags: [Patients]
-      summary: Get temporary download URL for medical document
-      parameters:
-        - $ref: '#/components/parameters/PatientId'
-        - name: documentId
-          in: path
-          required: true
-          schema: { type: integer }
-      responses:
-        '200':
-          description: Signed URL
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/ApiSuccess'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          url: { type: string }
-                          expires_in: { type: integer }
-                          mime_type: { type: string }
-                          title: { type: string }
+    get: { tags: [Patients], summary: List patients, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Patients], summary: Create patient, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /patients/{patient}:
+    get: { tags: [Patients], summary: Show patient, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Patients], summary: Update patient, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Patients], summary: Delete patient, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+  /patients/{patient}/archive:
+    post: { tags: [Patients], summary: Archive patient, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{patient}/restore:
+    post: { tags: [Patients], summary: Restore patient, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{patient}/timeline:
+    get: { tags: [Patients], summary: Patient timeline, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{patient}/ledger:
+    get: { tags: [Billing], summary: Patient ledger, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /patients/{patient}/contacts:
+    get: { tags: [Patients], summary: List patient contacts, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Patients], summary: Create patient contact, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /contacts/{contact}:
+    get: { tags: [Patients], summary: Show contact, parameters: [{ $ref: '#/components/parameters/ContactId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Patients], summary: Update contact, parameters: [{ $ref: '#/components/parameters/ContactId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Patients], summary: Delete contact, parameters: [{ $ref: '#/components/parameters/ContactId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /patients/{patient}/allergies:
+    get: { tags: [Patients], summary: List allergies, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Patients], summary: Create allergy, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /allergies/{allergy}:
+    get: { tags: [Patients], summary: Show allergy, parameters: [{ $ref: '#/components/parameters/AllergyId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Patients], summary: Update allergy, parameters: [{ $ref: '#/components/parameters/AllergyId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Patients], summary: Delete allergy, parameters: [{ $ref: '#/components/parameters/AllergyId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /patients/{patient}/conditions:
+    get: { tags: [Patients], summary: List conditions, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Patients], summary: Create condition, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /conditions/{condition}:
+    get: { tags: [Patients], summary: Show condition, parameters: [{ $ref: '#/components/parameters/ConditionId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Patients], summary: Update condition, parameters: [{ $ref: '#/components/parameters/ConditionId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Patients], summary: Delete condition, parameters: [{ $ref: '#/components/parameters/ConditionId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /patients/{patient}/medications:
+    get: { tags: [Patients], summary: List medications, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Patients], summary: Create medication, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /medications/{medication}:
+    get: { tags: [Patients], summary: Show medication, parameters: [{ $ref: '#/components/parameters/MedicationId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Patients], summary: Update medication, parameters: [{ $ref: '#/components/parameters/MedicationId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Patients], summary: Delete medication, parameters: [{ $ref: '#/components/parameters/MedicationId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /patients/{patient}/consents:
+    get: { tags: [Patients], summary: List consents, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Patients], summary: Create consent, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /consents/{consent}:
+    get: { tags: [Patients], summary: Show consent, parameters: [{ $ref: '#/components/parameters/ConsentId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Patients], summary: Update consent, parameters: [{ $ref: '#/components/parameters/ConsentId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Patients], summary: Delete consent, parameters: [{ $ref: '#/components/parameters/ConsentId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /patients/{patient}/medical-cases:
+    get: { tags: [Patients], summary: List medical cases, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Patients], summary: Create medical case, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /patients/{patient}/medical-cases/{medicalCase}:
+    get: { tags: [Patients], summary: Show medical case, parameters: [{ $ref: '#/components/parameters/PatientId' }, { $ref: '#/components/parameters/MedicalCaseId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Patients], summary: Update medical case, parameters: [{ $ref: '#/components/parameters/PatientId' }, { $ref: '#/components/parameters/MedicalCaseId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Patients], summary: Delete medical case, parameters: [{ $ref: '#/components/parameters/PatientId' }, { $ref: '#/components/parameters/MedicalCaseId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /patients/{patient}/documents:
+    get: { tags: [Patients], summary: List medical documents, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Patients], summary: Upload medical document, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /patients/{patient}/documents/{document}:
+    get: { tags: [Patients], summary: Show medical document, parameters: [{ $ref: '#/components/parameters/PatientId' }, { $ref: '#/components/parameters/DocumentId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Patients], summary: Update medical document, parameters: [{ $ref: '#/components/parameters/PatientId' }, { $ref: '#/components/parameters/DocumentId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Patients], summary: Delete medical document, parameters: [{ $ref: '#/components/parameters/PatientId' }, { $ref: '#/components/parameters/DocumentId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+  /patients/{patient}/documents/{document}/download:
+    get: { tags: [Patients], summary: Signed download URL for document, parameters: [{ $ref: '#/components/parameters/PatientId' }, { $ref: '#/components/parameters/DocumentId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{patient}/documents/{document}/analyze:
+    post: { tags: [AI], summary: Analyze medical document, parameters: [{ $ref: '#/components/parameters/PatientId' }, { $ref: '#/components/parameters/DocumentId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
   /appointments:
-    get:
-      tags: [Appointments]
-      summary: List appointments
-      responses:
-        '200':
-          description: Appointment list
-    post:
-      tags: [Appointments]
-      summary: Create appointment
-      responses:
-        '201':
-          description: Appointment created
+    get: { tags: [Appointments], summary: List appointments, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Appointments], summary: Create appointment, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /appointments/{appointment}:
+    get: { tags: [Appointments], summary: Show appointment, parameters: [{ $ref: '#/components/parameters/AppointmentId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Appointments], summary: Update appointment, parameters: [{ $ref: '#/components/parameters/AppointmentId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Appointments], summary: Delete appointment, parameters: [{ $ref: '#/components/parameters/AppointmentId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /schedule-blocks:
+    get: { tags: [Scheduling], summary: List schedule blocks, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Scheduling], summary: Create schedule block, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /schedule-blocks/{scheduleBlock}:
+    get: { tags: [Scheduling], summary: Show schedule block, parameters: [{ $ref: '#/components/parameters/ScheduleBlockId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Scheduling], summary: Update schedule block, parameters: [{ $ref: '#/components/parameters/ScheduleBlockId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Scheduling], summary: Delete schedule block, parameters: [{ $ref: '#/components/parameters/ScheduleBlockId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /recalls:
+    get: { tags: [Recalls], summary: List recalls, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Recalls], summary: Create recall, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /recalls/{recall}:
+    get: { tags: [Recalls], summary: Show recall, parameters: [{ $ref: '#/components/parameters/RecallId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Recalls], summary: Update recall, parameters: [{ $ref: '#/components/parameters/RecallId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Recalls], summary: Delete recall, parameters: [{ $ref: '#/components/parameters/RecallId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
   /recalls/due:
-    get:
-      tags: [Appointments]
-      summary: List due recalls
-      responses:
-        '200':
-          description: Due recalls
-  /recalls/{recallId}/send-reminder:
-    post:
-      tags: [Appointments]
-      summary: Queue recall reminder
-      parameters:
-        - name: recallId
-          in: path
-          required: true
-          schema: { type: integer }
-      responses:
-        '200':
-          description: Reminder queued
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiSuccess' }
+    get: { tags: [Recalls], summary: Due recalls, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /recalls/{recall}/status:
+    patch: { tags: [Recalls], summary: Update recall status, parameters: [{ $ref: '#/components/parameters/RecallId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /recalls/{recall}/send-reminder:
+    post: { tags: [Recalls], summary: Send recall reminder, parameters: [{ $ref: '#/components/parameters/RecallId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /recalls/ai-prioritize:
+    post: { tags: [AI], summary: AI prioritise recalls, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /communication-logs:
+    get: { tags: [Recalls], summary: List communication logs, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /communication-logs/{communicationLog}:
+    get: { tags: [Recalls], summary: Show communication log, parameters: [{ $ref: '#/components/parameters/CommunicationLogId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
   /invoices:
-    get:
-      tags: [Billing]
-      summary: List invoices
-      responses:
-        '200':
-          description: Invoice list
-    post:
-      tags: [Billing]
-      summary: Create invoice
-      responses:
-        '201':
-          description: Invoice created
-  /invoices/{invoiceId}/finalize:
-    post:
-      tags: [Billing]
-      summary: Finalize invoice
-      parameters:
-        - name: invoiceId
-          in: path
-          required: true
-          schema: { type: integer }
-      responses:
-        '200':
-          description: Invoice finalized
-  /invoices/{invoiceId}/void:
-    post:
-      tags: [Billing]
-      summary: Void invoice
-      parameters:
-        - name: invoiceId
-          in: path
-          required: true
-          schema: { type: integer }
-      responses:
-        '200':
-          description: Invoice voided
-  /patients/{patientId}/ledger:
-    get:
-      tags: [Billing]
-      summary: Patient billing ledger
-      parameters:
-        - $ref: '#/components/parameters/PatientId'
-      responses:
-        '200':
-          description: Ledger summary and items
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/ApiSuccess'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          items:
-                            type: array
-                            items: { type: object, additionalProperties: true }
-                          summary:
-                            type: object
-                            properties:
-                              total_billed: { type: number }
-                              total_paid: { type: number }
-                              outstanding: { type: number }
-                      meta: { $ref: '#/components/schemas/PaginationMeta' }
+    get: { tags: [Billing], summary: List invoices, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Billing], summary: Create invoice, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /invoices/{invoice}:
+    get: { tags: [Billing], summary: Show invoice, parameters: [{ $ref: '#/components/parameters/InvoiceId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Billing], summary: Update invoice, parameters: [{ $ref: '#/components/parameters/InvoiceId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Billing], summary: Delete invoice, parameters: [{ $ref: '#/components/parameters/InvoiceId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+  /invoices/{invoice}/finalize:
+    post: { tags: [Billing], summary: Finalize invoice, parameters: [{ $ref: '#/components/parameters/InvoiceId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /invoices/{invoice}/void:
+    post: { tags: [Billing], summary: Void invoice, parameters: [{ $ref: '#/components/parameters/InvoiceId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /invoices/{invoice}/items:
+    get: { tags: [Billing], summary: List invoice items, parameters: [{ $ref: '#/components/parameters/InvoiceId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Billing], summary: Create invoice item, parameters: [{ $ref: '#/components/parameters/InvoiceId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /items/{item}:
+    put: { tags: [Billing], summary: Update invoice item, parameters: [{ $ref: '#/components/parameters/ItemId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Billing], summary: Delete invoice item, parameters: [{ $ref: '#/components/parameters/ItemId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /payments:
+    get: { tags: [Billing], summary: List payments, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Billing], summary: Record payment, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /payments/{payment}:
+    get: { tags: [Billing], summary: Show payment, parameters: [{ $ref: '#/components/parameters/PaymentId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Billing], summary: Delete payment, parameters: [{ $ref: '#/components/parameters/PaymentId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /payment-plans:
+    get: { tags: [Billing], summary: List payment plans, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Billing], summary: Create payment plan, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /payment-plans/{paymentPlan}:
+    get: { tags: [Billing], summary: Show payment plan, parameters: [{ $ref: '#/components/parameters/PaymentPlanId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Billing], summary: Delete payment plan, parameters: [{ $ref: '#/components/parameters/PaymentPlanId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /inventory-items:
+    get: { tags: [Inventory], summary: List inventory items, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Inventory], summary: Create inventory item, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /inventory-items/{inventoryItem}:
+    get: { tags: [Inventory], summary: Show inventory item, parameters: [{ $ref: '#/components/parameters/InventoryItemId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Inventory], summary: Update inventory item, parameters: [{ $ref: '#/components/parameters/InventoryItemId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Inventory], summary: Delete inventory item, parameters: [{ $ref: '#/components/parameters/InventoryItemId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
   /inventory-items/low-stock:
-    get:
-      tags: [Inventory]
-      summary: List low-stock items
-      responses:
-        '200':
-          description: Low-stock list
-  /inventory-items/{inventoryItemId}/adjust-stock:
-    post:
-      tags: [Inventory]
-      summary: Adjust stock quantity
-      parameters:
-        - name: inventoryItemId
-          in: path
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [movement_type, quantity]
-              properties:
-                movement_type: { type: string }
-                quantity: { type: integer }
-                reason: { type: string }
-                reference: { type: string }
-      responses:
-        '200':
-          description: Stock adjusted
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiSuccess' }
-  /patients/{patientId}/documents/{documentId}/analyze:
-    post:
-      tags: [AI]
-      summary: Analyze dental image document with AI
-      parameters:
-        - $ref: '#/components/parameters/PatientId'
-        - name: documentId
-          in: path
-          required: true
-          schema: { type: integer }
-      responses:
-        '200':
-          description: AI result
-  /encounters/{encounterId}/suggest-soap:
-    post:
-      tags: [AI]
-      summary: Generate SOAP suggestion
-      parameters:
-        - name: encounterId
-          in: path
-          required: true
-          schema: { type: integer }
-      responses:
-        '200':
-          description: AI SOAP suggestion
-  /patients/{patientId}/prescription-suggestions:
-    post:
-      tags: [AI]
-      summary: Generate prescription suggestion
-      parameters:
-        - $ref: '#/components/parameters/PatientId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [diagnosis]
-              properties:
-                diagnosis: { type: string }
-                encounter_id: { type: integer, nullable: true }
-      responses:
-        '200':
-          description: AI prescription suggestion
-  /ai-results/{resultId}/create-prescription:
-    post:
-      tags: [AI]
-      summary: Accept AI suggestion and create prescription
-      parameters:
-        - name: resultId
-          in: path
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [items]
-              properties:
-                encounter_id: { type: integer, nullable: true }
-                notes: { type: string, nullable: true }
-                reviewer_notes: { type: string, nullable: true }
-                items:
-                  type: array
-                  minItems: 1
-                  items:
-                    type: object
-                    required: [drug_name]
-                    properties:
-                      drug_name: { type: string }
-                      dose: { type: string, nullable: true }
-                      frequency: { type: string, nullable: true }
-                      duration: { type: string, nullable: true }
-                      quantity: { type: string, nullable: true }
-                      instructions: { type: string, nullable: true }
-      responses:
-        '201':
-          description: Prescription created
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiSuccess' }
+    get: { tags: [Inventory], summary: Low stock inventory items, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /inventory-items/{inventoryItem}/movements:
+    get: { tags: [Inventory], summary: Inventory movements, parameters: [{ $ref: '#/components/parameters/InventoryItemId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /inventory-items/{inventoryItem}/adjust-stock:
+    post: { tags: [Inventory], summary: Adjust stock quantity, parameters: [{ $ref: '#/components/parameters/InventoryItemId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /suppliers:
+    get: { tags: [Inventory], summary: List suppliers, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Inventory], summary: Create supplier, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /suppliers/{supplier}:
+    get: { tags: [Inventory], summary: Show supplier, parameters: [{ $ref: '#/components/parameters/SupplierId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Inventory], summary: Update supplier, parameters: [{ $ref: '#/components/parameters/SupplierId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Inventory], summary: Delete supplier, parameters: [{ $ref: '#/components/parameters/SupplierId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /purchase-orders:
+    get: { tags: [Inventory], summary: List purchase orders, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Inventory], summary: Create purchase order, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /purchase-orders/{purchaseOrder}:
+    get: { tags: [Inventory], summary: Show purchase order, parameters: [{ $ref: '#/components/parameters/PurchaseOrderId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Inventory], summary: Delete purchase order, parameters: [{ $ref: '#/components/parameters/PurchaseOrderId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+  /purchase-orders/{purchaseOrder}/receive:
+    post: { tags: [Inventory], summary: Receive purchase order, parameters: [{ $ref: '#/components/parameters/PurchaseOrderId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /purchase-orders/{purchaseOrder}/cancel:
+    post: { tags: [Inventory], summary: Cancel purchase order, parameters: [{ $ref: '#/components/parameters/PurchaseOrderId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /encounters:
+    get: { tags: [Clinical], summary: List encounters, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Clinical], summary: Create encounter, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /encounters/{encounter}:
+    get: { tags: [Clinical], summary: Show encounter, parameters: [{ $ref: '#/components/parameters/EncounterId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Clinical], summary: Update encounter, parameters: [{ $ref: '#/components/parameters/EncounterId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Clinical], summary: Delete encounter, parameters: [{ $ref: '#/components/parameters/EncounterId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+  /encounters/{encounter}/lock:
+    post: { tags: [Clinical], summary: Lock encounter, parameters: [{ $ref: '#/components/parameters/EncounterId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /encounters/{encounter}/unlock:
+    post: { tags: [Clinical], summary: Unlock encounter, parameters: [{ $ref: '#/components/parameters/EncounterId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /encounters/{encounter}/odontogram-entries:
+    get: { tags: [Clinical], summary: List encounter odontogram entries, parameters: [{ $ref: '#/components/parameters/EncounterId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Clinical], summary: Create odontogram entry, parameters: [{ $ref: '#/components/parameters/EncounterId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /patients/{patient}/odontogram:
+    get: { tags: [Clinical], summary: Patient odontogram timeline, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /odontogram-entries/{odontogramEntry}:
+    put: { tags: [Clinical], summary: Update odontogram entry, parameters: [{ $ref: '#/components/parameters/OdontogramEntryId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Clinical], summary: Delete odontogram entry, parameters: [{ $ref: '#/components/parameters/OdontogramEntryId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /perio-exams:
+    get: { tags: [Clinical], summary: List perio exams, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Clinical], summary: Create perio exam, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /perio-exams/{perioExam}:
+    get: { tags: [Clinical], summary: Show perio exam, parameters: [{ $ref: '#/components/parameters/PerioExamId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Clinical], summary: Update perio exam, parameters: [{ $ref: '#/components/parameters/PerioExamId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Clinical], summary: Delete perio exam, parameters: [{ $ref: '#/components/parameters/PerioExamId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+  /perio-exams/{perioExam}/measures:
+    post: { tags: [Clinical], summary: Add perio measure, parameters: [{ $ref: '#/components/parameters/PerioExamId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /perio-exams/{perioExam}/measures/{measure}:
+    delete: { tags: [Clinical], summary: Delete perio measure, parameters: [{ $ref: '#/components/parameters/PerioExamId' }, { $ref: '#/components/parameters/MeasureId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+  /perio-exams/{perioExam}/risk-score:
+    post: { tags: [AI], summary: AI periodontal risk score, parameters: [{ $ref: '#/components/parameters/PerioExamId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /treatment-plans:
+    get: { tags: [Clinical], summary: List treatment plans, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Clinical], summary: Create treatment plan, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /treatment-plans/{treatmentPlan}:
+    get: { tags: [Clinical], summary: Show treatment plan, parameters: [{ $ref: '#/components/parameters/TreatmentPlanId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Clinical], summary: Update treatment plan, parameters: [{ $ref: '#/components/parameters/TreatmentPlanId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Clinical], summary: Delete treatment plan, parameters: [{ $ref: '#/components/parameters/TreatmentPlanId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+  /treatment-plans/{treatmentPlan}/present:
+    post: { tags: [Clinical], summary: Mark treatment plan presented, parameters: [{ $ref: '#/components/parameters/TreatmentPlanId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /treatment-plans/{treatmentPlan}/accept:
+    post: { tags: [Clinical], summary: Accept treatment plan, parameters: [{ $ref: '#/components/parameters/TreatmentPlanId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /treatment-plans/{treatmentPlan}/reject:
+    post: { tags: [Clinical], summary: Reject treatment plan, parameters: [{ $ref: '#/components/parameters/TreatmentPlanId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /prescriptions:
+    get: { tags: [Clinical], summary: List prescriptions, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    post: { tags: [Clinical], summary: Create prescription, responses: { '201': { $ref: '#/components/responses/Created' } } }
+  /prescriptions/{prescription}:
+    get: { tags: [Clinical], summary: Show prescription, parameters: [{ $ref: '#/components/parameters/PrescriptionId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Clinical], summary: Update prescription, parameters: [{ $ref: '#/components/parameters/PrescriptionId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Clinical], summary: Delete prescription, parameters: [{ $ref: '#/components/parameters/PrescriptionId' }], responses: { '204': { $ref: '#/components/responses/NoContent' } } }
+
+  /encounters/{encounter}/suggest-soap:
+    post: { tags: [AI], summary: AI SOAP suggestion, parameters: [{ $ref: '#/components/parameters/EncounterId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{patient}/prescription-suggestions:
+    post: { tags: [AI], summary: AI prescription suggestion, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{patient}/ai-results:
+    get: { tags: [AI], summary: Patient AI result history, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{patient}/ai-insights:
+    get: { tags: [AI], summary: Patient AI insights, parameters: [{ $ref: '#/components/parameters/PatientId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /ai-results/{result}:
+    get: { tags: [AI], summary: Show AI result, parameters: [{ $ref: '#/components/parameters/ResultId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /ai-results/{result}/accept:
+    post: { tags: [AI], summary: Accept AI result, parameters: [{ $ref: '#/components/parameters/ResultId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /ai-results/{result}/dismiss:
+    post: { tags: [AI], summary: Dismiss AI result, parameters: [{ $ref: '#/components/parameters/ResultId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /ai-results/{result}/apply-soap:
+    post: { tags: [AI], summary: Apply AI SOAP result, parameters: [{ $ref: '#/components/parameters/ResultId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /ai-results/{result}/create-prescription:
+    post: { tags: [AI], summary: Create prescription from AI result, parameters: [{ $ref: '#/components/parameters/ResultId' }], responses: { '201': { $ref: '#/components/responses/Created' } } }
+
   /dashboard/kpis:
-    get:
-      tags: [Reports]
-      summary: Dashboard KPIs
-      responses:
-        '200':
-          description: KPI values
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiSuccess' }
+    get: { tags: [Reports], summary: Dashboard KPIs, responses: { '200': { $ref: '#/components/responses/Ok' } } }
   /reports/appointments:
-    get:
-      tags: [Reports]
-      summary: Appointments report
-      responses:
-        '200':
-          description: Report payload
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiSuccess' }
+    get: { tags: [Reports], summary: Appointment report, responses: { '200': { $ref: '#/components/responses/Ok' } } }
   /reports/production:
-    get:
-      tags: [Reports]
-      summary: Production report
-      responses:
-        '200':
-          description: Report payload
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiSuccess' }
+    get: { tags: [Reports], summary: Production report, responses: { '200': { $ref: '#/components/responses/Ok' } } }
   /reports/collections:
-    get:
-      tags: [Reports]
-      summary: Collections report
-      responses:
-        '200':
-          description: Report payload
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiSuccess' }
+    get: { tags: [Reports], summary: Collections report, responses: { '200': { $ref: '#/components/responses/Ok' } } }
   /reports/recall-performance:
-    get:
-      tags: [Reports]
-      summary: Recall performance report
-      responses:
-        '200':
-          description: Report payload
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ApiSuccess' }
+    get: { tags: [Reports], summary: Recall performance report, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /reports/inventory:
+    get: { tags: [Reports], summary: Inventory report, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /audit-logs:
+    get: { tags: [Audit], summary: List audit logs, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /audit-logs/{auditLog}:
+    get: { tags: [Audit], summary: Show audit log, parameters: [{ $ref: '#/components/parameters/AuditLogId' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: token
-  parameters:
-    PatientId:
-      name: patientId
-      in: path
-      required: true
-      schema: { type: integer }
-    Page:
-      name: page
-      in: query
-      schema: { type: integer, minimum: 1 }
-    PerPage:
-      name: per_page
-      in: query
-      schema: { type: integer, minimum: 1, maximum: 100 }
+  responses:
+    Ok:
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiSuccess'
+    Created:
+      description: Resource created
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiSuccess'
+    NoContent:
+      description: Empty response
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
   schemas:
     ApiSuccess:
       type: object
       properties:
         success: { type: boolean, example: true }
         message: { type: string, nullable: true }
-        data:
-          type: object
-          nullable: true
-          additionalProperties: true
-        meta:
-          type: object
-          nullable: true
-          additionalProperties: true
-    PaginationMeta:
+        data: { type: object, nullable: true, additionalProperties: true }
+        meta: { type: object, nullable: true, additionalProperties: true }
+    ApiError:
       type: object
       properties:
-        current_page: { type: integer }
-        per_page: { type: integer }
-        total: { type: integer }
-        last_page: { type: integer }
-    User:
-      type: object
-      properties:
-        id: { type: integer }
-        name: { type: string }
-        email: { type: string, format: email }
-        role: { type: string }
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
-    PatientResource:
-      type: object
-      properties:
-        data:
-          type: object
-          properties:
-            id: { type: integer }
-            first_name: { type: string }
-            last_name: { type: string }
-            phone: { type: string, nullable: true }
-            email: { type: string, format: email, nullable: true }
-            date_of_birth: { type: string, format: date, nullable: true }
-    LaravelPaginatedPatientResource:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            type: object
-            additionalProperties: true
-        links:
-          type: object
-          additionalProperties: true
-        meta:
-          type: object
-          additionalProperties: true
-    PatientUpsert:
-      type: object
-      properties:
-        first_name: { type: string }
-        last_name: { type: string }
-        phone: { type: string, nullable: true }
-        email: { type: string, format: email, nullable: true }
-        date_of_birth: { type: string, format: date, nullable: true }
+        success: { type: boolean, example: false }
+        message: { type: string }
+        errors: { type: object, nullable: true, additionalProperties: true }
+  parameters:
+    UserId: { name: user, in: path, required: true, schema: { type: integer } }
+    OperatoryId: { name: operatory, in: path, required: true, schema: { type: integer } }
+    AppointmentTypeId: { name: appointmentType, in: path, required: true, schema: { type: integer } }
+    ProcedureCodeId: { name: procedureCode, in: path, required: true, schema: { type: integer } }
+    PaymentMethodId: { name: paymentMethod, in: path, required: true, schema: { type: integer } }
+    ProviderId: { name: provider, in: path, required: true, schema: { type: integer } }
+    PatientId: { name: patient, in: path, required: true, schema: { type: integer } }
+    ContactId: { name: contact, in: path, required: true, schema: { type: integer } }
+    AllergyId: { name: allergy, in: path, required: true, schema: { type: integer } }
+    ConditionId: { name: condition, in: path, required: true, schema: { type: integer } }
+    MedicationId: { name: medication, in: path, required: true, schema: { type: integer } }
+    ConsentId: { name: consent, in: path, required: true, schema: { type: integer } }
+    MedicalCaseId: { name: medicalCase, in: path, required: true, schema: { type: integer } }
+    DocumentId: { name: document, in: path, required: true, schema: { type: integer } }
+    AppointmentId: { name: appointment, in: path, required: true, schema: { type: integer } }
+    ScheduleBlockId: { name: scheduleBlock, in: path, required: true, schema: { type: integer } }
+    RecallId: { name: recall, in: path, required: true, schema: { type: integer } }
+    CommunicationLogId: { name: communicationLog, in: path, required: true, schema: { type: integer } }
+    InvoiceId: { name: invoice, in: path, required: true, schema: { type: integer } }
+    ItemId: { name: item, in: path, required: true, schema: { type: integer } }
+    PaymentId: { name: payment, in: path, required: true, schema: { type: integer } }
+    PaymentPlanId: { name: paymentPlan, in: path, required: true, schema: { type: integer } }
+    InventoryItemId: { name: inventoryItem, in: path, required: true, schema: { type: integer } }
+    SupplierId: { name: supplier, in: path, required: true, schema: { type: integer } }
+    PurchaseOrderId: { name: purchaseOrder, in: path, required: true, schema: { type: integer } }
+    EncounterId: { name: encounter, in: path, required: true, schema: { type: integer } }
+    OdontogramEntryId: { name: odontogramEntry, in: path, required: true, schema: { type: integer } }
+    PerioExamId: { name: perioExam, in: path, required: true, schema: { type: integer } }
+    MeasureId: { name: measure, in: path, required: true, schema: { type: integer } }
+    TreatmentPlanId: { name: treatmentPlan, in: path, required: true, schema: { type: integer } }
+    PrescriptionId: { name: prescription, in: path, required: true, schema: { type: integer } }
+    ResultId: { name: result, in: path, required: true, schema: { type: integer } }
+    AuditLogId: { name: auditLog, in: path, required: true, schema: { type: integer } }

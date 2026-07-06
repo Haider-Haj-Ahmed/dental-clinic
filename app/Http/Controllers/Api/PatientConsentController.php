@@ -57,6 +57,6 @@ class PatientConsentController extends Controller
 
         $consent->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

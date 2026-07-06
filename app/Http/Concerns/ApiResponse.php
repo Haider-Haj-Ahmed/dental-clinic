@@ -3,9 +3,25 @@
 namespace App\Http\Concerns;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 
 trait ApiResponse
 {
+    protected function ok(mixed $data = null, ?string $message = null, array $meta = []): JsonResponse
+    {
+        return $this->successResponse($data, $message, 200, $meta);
+    }
+
+    protected function created(mixed $data = null, ?string $message = null, array $meta = []): JsonResponse
+    {
+        return $this->successResponse($data, $message, 201, $meta);
+    }
+
+    protected function noContentResponse(): Response
+    {
+        return response()->noContent();
+    }
+
     protected function successResponse(
         mixed $data = null,
         ?string $message = null,

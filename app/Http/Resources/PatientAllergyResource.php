@@ -3,9 +3,8 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\JsonResource;
 
-class PatientAllergyResource extends JsonResource
+class PatientAllergyResource extends ApiResource
 {
     public function toArray(Request $request): array
     {

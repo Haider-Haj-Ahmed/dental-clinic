@@ -80,7 +80,7 @@ class InvoiceController extends Controller
 
         $invoice->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 
     /** POST /invoices/{invoice}/finalize */

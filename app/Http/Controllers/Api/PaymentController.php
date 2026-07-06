@@ -89,6 +89,6 @@ class PaymentController extends Controller
             $invoice->update(['status' => $newStatus]);
         });
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

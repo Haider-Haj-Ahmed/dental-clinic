@@ -75,7 +75,7 @@ class PerioExamController extends Controller
     {
         $perioExam->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 
     /** POST /perio-exams/{perioExam}/measures */
@@ -96,6 +96,6 @@ class PerioExamController extends Controller
 
         $measure->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

@@ -53,6 +53,6 @@ class OperatoryController extends Controller
     {
         $operatory->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

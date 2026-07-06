@@ -80,6 +80,6 @@ class OdontogramController extends Controller
 
         $odontogramEntry->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }

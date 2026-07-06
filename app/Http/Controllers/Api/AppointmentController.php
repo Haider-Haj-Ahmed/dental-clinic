@@ -104,7 +104,7 @@ class AppointmentController extends Controller
     {
         $appointment->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 
     private function assertNoTimeConflict(

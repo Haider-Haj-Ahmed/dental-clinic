@@ -62,6 +62,6 @@ class PatientConditionController extends Controller
 
         $condition->delete();
 
-        return response()->noContent();
+        return $this->noContentResponse();
     }
 }
