@@ -1,0 +1,6148 @@
+openapi: 3.0.3
+
+info:
+  title: Dental Clinic PMS API
+  description: |
+    RESTful API for a dental clinic practice management system.
+    Covers authentication, patient records, appointments, clinical workflows,
+    billing, inventory, AI-assisted analysis, and audit logging.
+
+    ## Authentication
+    All endpoints (except `POST /auth/login`) require a Bearer token obtained via login.
+    Tokens are issued with per-role abilities enforced by the `token.ability` middleware.
+
+    ## Token Abilities by Role
+    | Ability | owner | receptionist | provider | assistant |
+    |---|---|---|---|---|
+    | `*` (all) | ✓ | | | |
+    | `patients:read/write` | ✓ | ✓ | read | read |
+    | `appointments:read/write` | ✓ | ✓ | ✓ | read |
+    | `clinical:read/write` | ✓ | read | ✓ | read |
+    | `billing:read/write` | ✓ | ✓ | read | |
+    | `recalls:read/write` | ✓ | ✓ | read | |
+    | `inventory:read/write` | ✓ | ✓ | | |
+    | `schedule-blocks:read/write` | ✓ | ✓ | read | read |
+    | `documents:write` | ✓ | | ✓ | ✓ |
+
+  version: 1.0.0
+  contact:
+    name: Haider Al-Haj Ahmed
+    url: https://github.com/Haider-Haj-Ahmed/dental-clinic
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+security:
+  - sanctum: []
+
+tags:
+  - name: Auth
+    description: Login, session info, logout
+  - name: Users
+    description: Staff user management (owner only)
+  - name: Providers
+    description: Dentist / provider profiles
+  - name: Operatories
+    description: Treatment rooms
+  - name: Appointment Types
+    description: Appointment type catalogue
+  - name: Procedure Codes
+    description: Dental procedure code catalogue
+  - name: Payment Methods
+    description: Payment method catalogue
+  - name: Patients
+    description: Patient demographic records
+  - name: Patient Sub-Resources
+    description: Contacts, allergies, conditions, medications, consents
+  - name: Patient Medical Cases
+    description: Historical and current case records
+  - name: Patient Documents
+    description: X-rays, photos, and other clinical documents
+  - name: Appointments
+    description: Scheduling and appointment management
+  - name: Schedule Blocks
+    description: Blocked time slots for providers / operatories
+  - name: Recalls
+    description: Recall scheduling and reminder dispatch
+  - name: Communication Logs
+    description: Outbound communication history
+  - name: Encounters
+    description: SOAP-format clinical encounter notes
+  - name: Odontogram
+    description: Per-tooth condition and procedure charting
+  - name: Perio Exams
+    description: Periodontal examination records and measurements
+  - name: Treatment Plans
+    description: Proposed treatment plan records
+  - name: Prescriptions
+    description: Medication prescription records
+  - name: Invoices
+    description: Billing invoices
+  - name: Payments
+    description: Payment records
+  - name: Payment Plans
+    description: Instalment payment plans
+  - name: Inventory
+    description: Inventory item management and stock movements
+  - name: Suppliers
+    description: Dental supply vendors
+  - name: Purchase Orders
+    description: Stock purchase orders
+  - name: AI Analysis
+    description: AI-assisted clinical insights (Phase 5)
+  - name: Dashboard & Reports
+    description: KPI dashboard and management reports
+  - name: Audit Logs
+    description: Immutable audit trail (owner only)
+
+paths:
+
+  # ── AUTH ──────────────────────────────────────────────────────────────────
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and obtain a Bearer token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get authenticated user
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke current token
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Revoke all tokens for the authenticated user
+      responses:
+        '200':
+          description: All sessions terminated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  # ── USERS ─────────────────────────────────────────────────────────────────
+
+  /users:
+    get:
+      tags: [Users]
+      summary: List staff users (owner only)
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/UserList'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Users]
+      summary: Create a staff user (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreUserRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/UserItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Users]
+      summary: Get a user
+      responses:
+        '200':
+          $ref: '#/components/responses/UserItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Users]
+      summary: Update a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/UserItem'
+    delete:
+      tags: [Users]
+      summary: Delete a user
+      responses:
+        '204':
+          description: Deleted
+
+  # ── OPERATORIES ───────────────────────────────────────────────────────────
+
+  /operatories:
+    get:
+      tags: [Operatories]
+      summary: List operatories
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/OperatoryList'
+    post:
+      tags: [Operatories]
+      summary: Create an operatory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOperatoryRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/OperatoryItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /operatories/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Operatories]
+      summary: Get an operatory
+      responses:
+        '200':
+          $ref: '#/components/responses/OperatoryItem'
+    put:
+      tags: [Operatories]
+      summary: Update an operatory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOperatoryRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/OperatoryItem'
+    delete:
+      tags: [Operatories]
+      summary: Delete an operatory
+      responses:
+        '204':
+          description: Deleted
+
+  # ── APPOINTMENT TYPES ─────────────────────────────────────────────────────
+
+  /appointment-types:
+    get:
+      tags: [Appointment Types]
+      summary: List appointment types
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/AppointmentTypeList'
+    post:
+      tags: [Appointment Types]
+      summary: Create an appointment type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreAppointmentTypeRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/AppointmentTypeItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /appointment-types/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Appointment Types]
+      summary: Get an appointment type
+      responses:
+        '200':
+          $ref: '#/components/responses/AppointmentTypeItem'
+    put:
+      tags: [Appointment Types]
+      summary: Update an appointment type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreAppointmentTypeRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/AppointmentTypeItem'
+    delete:
+      tags: [Appointment Types]
+      summary: Delete an appointment type
+      responses:
+        '204':
+          description: Deleted
+
+  # ── PROCEDURE CODES ───────────────────────────────────────────────────────
+
+  /procedure-codes:
+    get:
+      tags: [Procedure Codes]
+      summary: List procedure codes
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProcedureCodeList'
+    post:
+      tags: [Procedure Codes]
+      summary: Create a procedure code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreProcedureCodeRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ProcedureCodeItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /procedure-codes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Procedure Codes]
+      summary: Get a procedure code
+      responses:
+        '200':
+          $ref: '#/components/responses/ProcedureCodeItem'
+    put:
+      tags: [Procedure Codes]
+      summary: Update a procedure code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreProcedureCodeRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProcedureCodeItem'
+    delete:
+      tags: [Procedure Codes]
+      summary: Delete a procedure code
+      responses:
+        '204':
+          description: Deleted
+
+  # ── PAYMENT METHODS ───────────────────────────────────────────────────────
+
+  /payment-methods:
+    get:
+      tags: [Payment Methods]
+      summary: List payment methods
+      responses:
+        '200':
+          $ref: '#/components/responses/PaymentMethodList'
+    post:
+      tags: [Payment Methods]
+      summary: Create a payment method
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePaymentMethodRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PaymentMethodItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /payment-methods/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Payment Methods]
+      summary: Get a payment method
+      responses:
+        '200':
+          $ref: '#/components/responses/PaymentMethodItem'
+    put:
+      tags: [Payment Methods]
+      summary: Update a payment method
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePaymentMethodRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PaymentMethodItem'
+    delete:
+      tags: [Payment Methods]
+      summary: Delete a payment method
+      responses:
+        '204':
+          description: Deleted
+
+  # ── PROVIDERS ─────────────────────────────────────────────────────────────
+
+  /providers:
+    get:
+      tags: [Providers]
+      summary: List providers
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderList'
+    post:
+      tags: [Providers]
+      summary: Create a provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreProviderRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ProviderItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /providers/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Providers]
+      summary: Get a provider
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderItem'
+    put:
+      tags: [Providers]
+      summary: Update a provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreProviderRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProviderItem'
+    delete:
+      tags: [Providers]
+      summary: Delete a provider
+      responses:
+        '204':
+          description: Deleted
+
+  # ── PATIENTS ──────────────────────────────────────────────────────────────
+
+  /patients:
+    get:
+      tags: [Patients]
+      summary: List patients
+      security:
+        - sanctum: [patients:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientList'
+    post:
+      tags: [Patients]
+      summary: Create a patient
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PatientItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /patients/{patient}:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patients]
+      summary: Get a patient
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Patients]
+      summary: Update a patient
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientItem'
+    delete:
+      tags: [Patients]
+      summary: Soft-delete a patient
+      security:
+        - sanctum: [patients:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /patients/{patient}/archive:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [Patients]
+      summary: Archive a patient
+      security:
+        - sanctum: [patients:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientItem'
+
+  /patients/{patient}/restore:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [Patients]
+      summary: Restore an archived patient
+      security:
+        - sanctum: [patients:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientItem'
+
+  /patients/{patient}/timeline:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patients]
+      summary: Unified chronological timeline for a patient
+      security:
+        - sanctum: [patients:read]
+      parameters:
+        - name: type[]
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [appointment, medical_case, document, encounter, prescription]
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Paginated timeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelineResponse'
+
+  /patients/{patient}/ledger:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Invoices]
+      summary: Full billing ledger for a patient
+      security:
+        - sanctum: [patients:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          description: Patient ledger with summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerResponse'
+
+  # ── PATIENT SUB-RESOURCES ─────────────────────────────────────────────────
+
+  /patients/{patient}/contacts:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patient Sub-Resources]
+      summary: List patient contacts
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientContactList'
+    post:
+      tags: [Patient Sub-Resources]
+      summary: Add a contact
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientContactRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PatientContactItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /contacts/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Patient Sub-Resources]
+      summary: Get a contact (shallow)
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientContactItem'
+    put:
+      tags: [Patient Sub-Resources]
+      summary: Update a contact
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientContactRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientContactItem'
+    delete:
+      tags: [Patient Sub-Resources]
+      summary: Delete a contact
+      security:
+        - sanctum: [patients:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /patients/{patient}/allergies:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patient Sub-Resources]
+      summary: List patient allergies
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientAllergyList'
+    post:
+      tags: [Patient Sub-Resources]
+      summary: Add an allergy
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientAllergyRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PatientAllergyItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /allergies/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Patient Sub-Resources]
+      summary: Get an allergy (shallow)
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientAllergyItem'
+    put:
+      tags: [Patient Sub-Resources]
+      summary: Update an allergy
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientAllergyRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientAllergyItem'
+    delete:
+      tags: [Patient Sub-Resources]
+      summary: Delete an allergy
+      security:
+        - sanctum: [patients:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /patients/{patient}/conditions:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patient Sub-Resources]
+      summary: List patient conditions
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientConditionList'
+    post:
+      tags: [Patient Sub-Resources]
+      summary: Add a condition
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientConditionRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PatientConditionItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /conditions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Patient Sub-Resources]
+      summary: Get a condition (shallow)
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientConditionItem'
+    put:
+      tags: [Patient Sub-Resources]
+      summary: Update a condition
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientConditionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientConditionItem'
+    delete:
+      tags: [Patient Sub-Resources]
+      summary: Delete a condition
+      security:
+        - sanctum: [patients:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /patients/{patient}/medications:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patient Sub-Resources]
+      summary: List patient medications
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientMedicationList'
+    post:
+      tags: [Patient Sub-Resources]
+      summary: Add a medication
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientMedicationRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PatientMedicationItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /medications/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Patient Sub-Resources]
+      summary: Get a medication (shallow)
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientMedicationItem'
+    put:
+      tags: [Patient Sub-Resources]
+      summary: Update a medication
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientMedicationRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientMedicationItem'
+    delete:
+      tags: [Patient Sub-Resources]
+      summary: Delete a medication
+      security:
+        - sanctum: [patients:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /patients/{patient}/consents:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patient Sub-Resources]
+      summary: List patient consents
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientConsentList'
+    post:
+      tags: [Patient Sub-Resources]
+      summary: Record a consent
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientConsentRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PatientConsentItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /consents/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Patient Sub-Resources]
+      summary: Get a consent (shallow)
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientConsentItem'
+    put:
+      tags: [Patient Sub-Resources]
+      summary: Update a consent
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientConsentRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PatientConsentItem'
+    delete:
+      tags: [Patient Sub-Resources]
+      summary: Delete a consent
+      security:
+        - sanctum: [patients:write]
+      responses:
+        '204':
+          description: Deleted
+
+  # ── PATIENT MEDICAL CASES ─────────────────────────────────────────────────
+
+  /patients/{patient}/medical-cases:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patient Medical Cases]
+      summary: List medical cases for a patient
+      security:
+        - sanctum: [patients:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/MedicalCaseList'
+    post:
+      tags: [Patient Medical Cases]
+      summary: Create a medical case
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientMedicalCaseRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/MedicalCaseItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /patients/{patient}/medical-cases/{medicalCase}:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: medicalCase
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patient Medical Cases]
+      summary: Get a medical case
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/MedicalCaseItem'
+    put:
+      tags: [Patient Medical Cases]
+      summary: Update a medical case
+      security:
+        - sanctum: [patients:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePatientMedicalCaseRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/MedicalCaseItem'
+    delete:
+      tags: [Patient Medical Cases]
+      summary: Delete a medical case
+      security:
+        - sanctum: [patients:write]
+      responses:
+        '204':
+          description: Deleted
+
+  # ── PATIENT DOCUMENTS ─────────────────────────────────────────────────────
+
+  /patients/{patient}/documents:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patient Documents]
+      summary: List documents for a patient
+      security:
+        - sanctum: [patients:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: document_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/DocumentType'
+      responses:
+        '200':
+          $ref: '#/components/responses/DocumentList'
+    post:
+      tags: [Patient Documents]
+      summary: Upload a document
+      security:
+        - sanctum: [documents:write]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StorePatientMedicalDocumentRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/DocumentItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /patients/{patient}/documents/{document}:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: document
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patient Documents]
+      summary: Get a document record
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/DocumentItem'
+    put:
+      tags: [Patient Documents]
+      summary: Update a document
+      security:
+        - sanctum: [documents:write]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StorePatientMedicalDocumentRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DocumentItem'
+    delete:
+      tags: [Patient Documents]
+      summary: Delete a document
+      security:
+        - sanctum: [documents:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /patients/{patient}/documents/{document}/download:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: document
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Patient Documents]
+      summary: Download the document file
+      security:
+        - sanctum: [patients:read]
+      responses:
+        '200':
+          description: Binary file stream
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /patients/{patient}/documents/{document}/analyze:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: document
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [AI Analysis]
+      summary: Trigger AI analysis on a document (X-ray / image)
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/AiResultItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ── APPOINTMENTS ──────────────────────────────────────────────────────────
+
+  /appointments:
+    get:
+      tags: [Appointments]
+      summary: List appointments
+      security:
+        - sanctum: [appointments:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: patient_id
+          in: query
+          schema:
+            type: integer
+        - name: provider_id
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/AppointmentStatus'
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          $ref: '#/components/responses/AppointmentList'
+    post:
+      tags: [Appointments]
+      summary: Create an appointment
+      security:
+        - sanctum: [appointments:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreAppointmentRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/AppointmentItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /appointments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Appointments]
+      summary: Get an appointment
+      security:
+        - sanctum: [appointments:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/AppointmentItem'
+    put:
+      tags: [Appointments]
+      summary: Update an appointment
+      security:
+        - sanctum: [appointments:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAppointmentRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/AppointmentItem'
+    delete:
+      tags: [Appointments]
+      summary: Delete an appointment
+      security:
+        - sanctum: [appointments:write]
+      responses:
+        '204':
+          description: Deleted
+
+  # ── SCHEDULE BLOCKS ───────────────────────────────────────────────────────
+
+  /schedule-blocks:
+    get:
+      tags: [Schedule Blocks]
+      summary: List schedule blocks
+      security:
+        - sanctum: [schedule-blocks:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: provider_id
+          in: query
+          schema:
+            type: integer
+        - name: operatory_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/ScheduleBlockList'
+    post:
+      tags: [Schedule Blocks]
+      summary: Create a schedule block
+      security:
+        - sanctum: [schedule-blocks:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreScheduleBlockRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ScheduleBlockItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /schedule-blocks/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Schedule Blocks]
+      summary: Get a schedule block
+      security:
+        - sanctum: [schedule-blocks:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/ScheduleBlockItem'
+    put:
+      tags: [Schedule Blocks]
+      summary: Update a schedule block
+      security:
+        - sanctum: [schedule-blocks:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreScheduleBlockRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ScheduleBlockItem'
+    delete:
+      tags: [Schedule Blocks]
+      summary: Delete a schedule block
+      security:
+        - sanctum: [schedule-blocks:write]
+      responses:
+        '204':
+          description: Deleted
+
+  # ── RECALLS ───────────────────────────────────────────────────────────────
+
+  /recalls:
+    get:
+      tags: [Recalls]
+      summary: List recalls
+      security:
+        - sanctum: [recalls:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/RecallStatus'
+        - name: patient_id
+          in: query
+          schema:
+            type: integer
+        - name: due_before
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: due_after
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          $ref: '#/components/responses/RecallList'
+    post:
+      tags: [Recalls]
+      summary: Create a recall
+      security:
+        - sanctum: [recalls:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreRecallRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/RecallItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /recalls/due:
+    get:
+      tags: [Recalls]
+      summary: List recalls due today or overdue
+      security:
+        - sanctum: [recalls:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/RecallList'
+
+  /recalls/ai-prioritize:
+    post:
+      tags: [Recalls, AI Analysis]
+      summary: AI-prioritise pending recalls due in the next 30 days
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 50
+      responses:
+        '200':
+          $ref: '#/components/responses/AiResultItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /recalls/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Recalls]
+      summary: Get a recall
+      security:
+        - sanctum: [recalls:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/RecallItem'
+    put:
+      tags: [Recalls]
+      summary: Update a recall
+      security:
+        - sanctum: [recalls:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreRecallRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/RecallItem'
+    delete:
+      tags: [Recalls]
+      summary: Delete a recall
+      security:
+        - sanctum: [recalls:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /recalls/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    patch:
+      tags: [Recalls]
+      summary: Update only the status of a recall
+      security:
+        - sanctum: [recalls:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/RecallStatus'
+      responses:
+        '200':
+          $ref: '#/components/responses/RecallItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /recalls/{id}/send-reminder:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Recalls]
+      summary: Queue a reminder for a recall
+      security:
+        - sanctum: [recalls:write]
+      responses:
+        '200':
+          description: Reminder queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  # ── COMMUNICATION LOGS ────────────────────────────────────────────────────
+
+  /communication-logs:
+    get:
+      tags: [Communication Logs]
+      summary: List communication logs
+      security:
+        - sanctum: [recalls:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommunicationLogList'
+
+  /communication-logs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Communication Logs]
+      summary: Get a communication log entry
+      security:
+        - sanctum: [recalls:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/CommunicationLogItem'
+
+  # ── INVOICES ──────────────────────────────────────────────────────────────
+
+  /invoices:
+    get:
+      tags: [Invoices]
+      summary: List invoices
+      security:
+        - sanctum: [billing:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: patient_id
+          in: query
+          schema:
+            type: integer
+        - name: provider_id
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/InvoiceStatus'
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          $ref: '#/components/responses/InvoiceList'
+    post:
+      tags: [Invoices]
+      summary: Create an invoice with line items
+      security:
+        - sanctum: [billing:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreInvoiceRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/InvoiceItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /invoices/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Invoices]
+      summary: Get an invoice
+      security:
+        - sanctum: [billing:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/InvoiceItem'
+    put:
+      tags: [Invoices]
+      summary: Update an invoice (draft only)
+      security:
+        - sanctum: [billing:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreInvoiceRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/InvoiceItem'
+    delete:
+      tags: [Invoices]
+      summary: Delete an invoice (draft only)
+      security:
+        - sanctum: [billing:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /invoices/{id}/finalize:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Invoices]
+      summary: Finalize a draft invoice
+      security:
+        - sanctum: [billing:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/InvoiceItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /invoices/{id}/void:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Invoices]
+      summary: Void an invoice
+      security:
+        - sanctum: [billing:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/InvoiceItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /invoices/{invoice}/items:
+    parameters:
+      - name: invoice
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Invoices]
+      summary: List line items on an invoice
+      security:
+        - sanctum: [billing:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/InvoiceItemList'
+    post:
+      tags: [Invoices]
+      summary: Add a line item to an invoice
+      security:
+        - sanctum: [billing:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreInvoiceItemRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/InvoiceItemSingle'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /items/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    put:
+      tags: [Invoices]
+      summary: Update a line item (shallow)
+      security:
+        - sanctum: [billing:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreInvoiceItemRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/InvoiceItemSingle'
+    delete:
+      tags: [Invoices]
+      summary: Delete a line item (shallow)
+      security:
+        - sanctum: [billing:write]
+      responses:
+        '204':
+          description: Deleted
+
+  # ── PAYMENTS ──────────────────────────────────────────────────────────────
+
+  /payments:
+    get:
+      tags: [Payments]
+      summary: List payments
+      security:
+        - sanctum: [billing:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: patient_id
+          in: query
+          schema:
+            type: integer
+        - name: invoice_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/PaymentList'
+    post:
+      tags: [Payments]
+      summary: Record a payment
+      security:
+        - sanctum: [billing:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePaymentRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PaymentItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /payments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Payments]
+      summary: Get a payment
+      security:
+        - sanctum: [billing:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PaymentItem'
+    delete:
+      tags: [Payments]
+      summary: Reverse a payment
+      security:
+        - sanctum: [billing:write]
+      responses:
+        '204':
+          description: Deleted
+
+  # ── PAYMENT PLANS ─────────────────────────────────────────────────────────
+
+  /payment-plans:
+    get:
+      tags: [Payment Plans]
+      summary: List payment plans
+      security:
+        - sanctum: [billing:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/PaymentPlanList'
+    post:
+      tags: [Payment Plans]
+      summary: Create a payment plan
+      security:
+        - sanctum: [billing:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePaymentPlanRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PaymentPlanItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /payment-plans/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Payment Plans]
+      summary: Get a payment plan
+      security:
+        - sanctum: [billing:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PaymentPlanItem'
+    delete:
+      tags: [Payment Plans]
+      summary: Delete a payment plan
+      security:
+        - sanctum: [billing:write]
+      responses:
+        '204':
+          description: Deleted
+
+  # ── INVENTORY ─────────────────────────────────────────────────────────────
+
+  /inventory-items:
+    get:
+      tags: [Inventory]
+      summary: List inventory items
+      security:
+        - sanctum: [inventory:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: supplier_id
+          in: query
+          schema:
+            type: integer
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/InventoryItemList'
+    post:
+      tags: [Inventory]
+      summary: Create an inventory item
+      security:
+        - sanctum: [inventory:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreInventoryItemRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/InventoryItemSingle'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /inventory-items/low-stock:
+    get:
+      tags: [Inventory]
+      summary: Items at or below reorder level
+      security:
+        - sanctum: [inventory:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/InventoryItemList'
+
+  /inventory-items/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Inventory]
+      summary: Get an inventory item
+      security:
+        - sanctum: [inventory:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/InventoryItemSingle'
+    put:
+      tags: [Inventory]
+      summary: Update an inventory item
+      security:
+        - sanctum: [inventory:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreInventoryItemRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/InventoryItemSingle'
+    delete:
+      tags: [Inventory]
+      summary: Delete an inventory item
+      security:
+        - sanctum: [inventory:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /inventory-items/{id}/movements:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Inventory]
+      summary: Stock movement history for an item
+      security:
+        - sanctum: [inventory:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/StockMovementList'
+
+  /inventory-items/{id}/adjust-stock:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Inventory]
+      summary: Manually adjust stock
+      security:
+        - sanctum: [inventory:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustStockRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/InventoryItemSingle'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ── SUPPLIERS ─────────────────────────────────────────────────────────────
+
+  /suppliers:
+    get:
+      tags: [Suppliers]
+      summary: List suppliers
+      security:
+        - sanctum: [inventory:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+      responses:
+        '200':
+          $ref: '#/components/responses/SupplierList'
+    post:
+      tags: [Suppliers]
+      summary: Create a supplier
+      security:
+        - sanctum: [inventory:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreSupplierRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/SupplierItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /suppliers/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Suppliers]
+      summary: Get a supplier
+      security:
+        - sanctum: [inventory:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/SupplierItem'
+    put:
+      tags: [Suppliers]
+      summary: Update a supplier
+      security:
+        - sanctum: [inventory:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreSupplierRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SupplierItem'
+    delete:
+      tags: [Suppliers]
+      summary: Delete a supplier
+      security:
+        - sanctum: [inventory:write]
+      responses:
+        '204':
+          description: Deleted
+
+  # ── PURCHASE ORDERS ───────────────────────────────────────────────────────
+
+  /purchase-orders:
+    get:
+      tags: [Purchase Orders]
+      summary: List purchase orders
+      security:
+        - sanctum: [inventory:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: supplier_id
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, received, cancelled]
+      responses:
+        '200':
+          $ref: '#/components/responses/PurchaseOrderList'
+    post:
+      tags: [Purchase Orders]
+      summary: Create a purchase order
+      security:
+        - sanctum: [inventory:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePurchaseOrderRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PurchaseOrderItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /purchase-orders/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Purchase Orders]
+      summary: Get a purchase order
+      security:
+        - sanctum: [inventory:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PurchaseOrderItem'
+    delete:
+      tags: [Purchase Orders]
+      summary: Delete a purchase order
+      security:
+        - sanctum: [inventory:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /purchase-orders/{id}/receive:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Purchase Orders]
+      summary: Mark received and update stock
+      security:
+        - sanctum: [inventory:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/PurchaseOrderItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /purchase-orders/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Purchase Orders]
+      summary: Cancel a purchase order
+      security:
+        - sanctum: [inventory:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/PurchaseOrderItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ── ENCOUNTERS ────────────────────────────────────────────────────────────
+
+  /encounters:
+    get:
+      tags: [Encounters]
+      summary: List encounters
+      security:
+        - sanctum: [clinical:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: patient_id
+          in: query
+          schema:
+            type: integer
+        - name: provider_id
+          in: query
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          $ref: '#/components/responses/EncounterList'
+    post:
+      tags: [Encounters]
+      summary: Create an encounter
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreEncounterRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/EncounterItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /encounters/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Encounters]
+      summary: Get an encounter
+      security:
+        - sanctum: [clinical:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/EncounterItem'
+    put:
+      tags: [Encounters]
+      summary: Update an encounter (must not be locked)
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEncounterRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/EncounterItem'
+    delete:
+      tags: [Encounters]
+      summary: Delete an encounter
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /encounters/{id}/lock:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Encounters]
+      summary: Lock an encounter
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/EncounterItem'
+
+  /encounters/{id}/unlock:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Encounters]
+      summary: Unlock an encounter
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/EncounterItem'
+
+  /encounters/{id}/suggest-soap:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Encounters, AI Analysis]
+      summary: Request AI SOAP note suggestion
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/AiResultItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ── ODONTOGRAM ────────────────────────────────────────────────────────────
+
+  /encounters/{encounter}/odontogram-entries:
+    parameters:
+      - name: encounter
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Odontogram]
+      summary: List odontogram entries for an encounter
+      security:
+        - sanctum: [clinical:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/OdontogramEntryList'
+    post:
+      tags: [Odontogram]
+      summary: Add an odontogram entry
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOdontogramEntryRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/OdontogramEntryItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /patients/{patient}/odontogram:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Odontogram]
+      summary: Full odontogram chart for a patient
+      security:
+        - sanctum: [clinical:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/OdontogramEntryList'
+
+  /odontogram-entries/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    put:
+      tags: [Odontogram]
+      summary: Update an odontogram entry
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreOdontogramEntryRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/OdontogramEntryItem'
+    delete:
+      tags: [Odontogram]
+      summary: Delete an odontogram entry
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '204':
+          description: Deleted
+
+  # ── PERIO EXAMS ───────────────────────────────────────────────────────────
+
+  /perio-exams:
+    get:
+      tags: [Perio Exams]
+      summary: List perio exams
+      security:
+        - sanctum: [clinical:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: patient_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/PerioExamList'
+    post:
+      tags: [Perio Exams]
+      summary: Create a perio exam
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePerioExamRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PerioExamItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /perio-exams/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Perio Exams]
+      summary: Get a perio exam
+      security:
+        - sanctum: [clinical:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PerioExamItem'
+    put:
+      tags: [Perio Exams]
+      summary: Update a perio exam
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePerioExamRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PerioExamItem'
+    delete:
+      tags: [Perio Exams]
+      summary: Delete a perio exam
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /perio-exams/{id}/measures:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Perio Exams]
+      summary: Add a measurement to a perio exam
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePerioMeasureRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PerioMeasureItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /perio-exams/{id}/measures/{measure}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - name: measure
+        in: path
+        required: true
+        schema:
+          type: integer
+    delete:
+      tags: [Perio Exams]
+      summary: Delete a perio measurement
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /perio-exams/{id}/risk-score:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Perio Exams, AI Analysis]
+      summary: Run AI perio risk scoring
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/AiResultItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ── TREATMENT PLANS ───────────────────────────────────────────────────────
+
+  /treatment-plans:
+    get:
+      tags: [Treatment Plans]
+      summary: List treatment plans
+      security:
+        - sanctum: [clinical:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: patient_id
+          in: query
+          schema:
+            type: integer
+        - name: provider_id
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, presented, accepted, rejected]
+      responses:
+        '200':
+          $ref: '#/components/responses/TreatmentPlanList'
+    post:
+      tags: [Treatment Plans]
+      summary: Create a treatment plan
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreTreatmentPlanRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/TreatmentPlanItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /treatment-plans/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Treatment Plans]
+      summary: Get a treatment plan
+      security:
+        - sanctum: [clinical:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/TreatmentPlanItem'
+    put:
+      tags: [Treatment Plans]
+      summary: Update a treatment plan
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreTreatmentPlanRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/TreatmentPlanItem'
+    delete:
+      tags: [Treatment Plans]
+      summary: Delete a treatment plan
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /treatment-plans/{id}/present:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Treatment Plans]
+      summary: Mark plan as presented to patient
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/TreatmentPlanItem'
+
+  /treatment-plans/{id}/accept:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Treatment Plans]
+      summary: Record patient acceptance
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/TreatmentPlanItem'
+
+  /treatment-plans/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [Treatment Plans]
+      summary: Record patient rejection
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '200':
+          $ref: '#/components/responses/TreatmentPlanItem'
+
+  # ── PRESCRIPTIONS ─────────────────────────────────────────────────────────
+
+  /prescriptions:
+    get:
+      tags: [Prescriptions]
+      summary: List prescriptions
+      security:
+        - sanctum: [clinical:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: patient_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: '#/components/responses/PrescriptionList'
+    post:
+      tags: [Prescriptions]
+      summary: Create a prescription
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePrescriptionRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/PrescriptionItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /prescriptions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Prescriptions]
+      summary: Get a prescription
+      security:
+        - sanctum: [clinical:read]
+      responses:
+        '200':
+          $ref: '#/components/responses/PrescriptionItem'
+    put:
+      tags: [Prescriptions]
+      summary: Update a prescription
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePrescriptionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/PrescriptionItem'
+    delete:
+      tags: [Prescriptions]
+      summary: Delete a prescription
+      security:
+        - sanctum: [clinical:write]
+      responses:
+        '204':
+          description: Deleted
+
+  /patients/{patient}/prescription-suggestions:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [Prescriptions, AI Analysis]
+      summary: Request AI prescription suggestions
+      security:
+        - sanctum: [clinical:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [diagnosis]
+              properties:
+                diagnosis:
+                  type: string
+                  minLength: 10
+                  maxLength: 1000
+                encounter_id:
+                  type: integer
+                  nullable: true
+      responses:
+        '200':
+          $ref: '#/components/responses/AiResultItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ── AI RESULTS ────────────────────────────────────────────────────────────
+
+  /patients/{patient}/ai-results:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [AI Analysis]
+      summary: List AI results for a patient
+      security:
+        - sanctum: [clinical:read]
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: analysis_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/AiAnalysisType'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/AiResultStatus'
+      responses:
+        '200':
+          $ref: '#/components/responses/AiResultList'
+
+  /patients/{patient}/ai-insights:
+    parameters:
+      - name: patient
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [AI Analysis]
+      summary: Aggregated latest AI insight per type for a patient
+      security:
+        - sanctum: [clinical:read]
+      responses:
+        '200':
+          description: Aggregated AI insights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientAiInsights'
+
+  /ai-results/{result}:
+    parameters:
+      - name: result
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [AI Analysis]
+      summary: Get a single AI result
+      responses:
+        '200':
+          $ref: '#/components/responses/AiResultItem'
+
+  /ai-results/{result}/accept:
+    parameters:
+      - name: result
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [AI Analysis]
+      summary: Accept an AI result
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reviewer_notes:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          $ref: '#/components/responses/AiResultItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /ai-results/{result}/dismiss:
+    parameters:
+      - name: result
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [AI Analysis]
+      summary: Dismiss an AI result
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reviewer_notes:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          $ref: '#/components/responses/AiResultItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /ai-results/{result}/apply-soap:
+    parameters:
+      - name: result
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [AI Analysis, Encounters]
+      summary: Apply AI SOAP suggestion to its encounter
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reviewer_notes:
+                  type: string
+                  nullable: true
+                subjective:
+                  type: string
+                  nullable: true
+                objective:
+                  type: string
+                  nullable: true
+                assessment:
+                  type: string
+                  nullable: true
+                plan:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          $ref: '#/components/responses/AiResultItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /ai-results/{result}/create-prescription:
+    parameters:
+      - name: result
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [AI Analysis, Prescriptions]
+      summary: Create a prescription from an AI suggestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                encounter_id:
+                  type: integer
+                  nullable: true
+                notes:
+                  type: string
+                  nullable: true
+                reviewer_notes:
+                  type: string
+                  nullable: true
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/PrescriptionItemInput'
+      responses:
+        '201':
+          description: Prescription created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  prescription:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      issued_at:
+                        type: string
+                        format: date-time
+                      items_count:
+                        type: integer
+                  ai_result:
+                    $ref: '#/components/schemas/AiResult'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ── DASHBOARD & REPORTS ───────────────────────────────────────────────────
+
+  /dashboard/kpis:
+    get:
+      tags: [Dashboard & Reports]
+      summary: KPI dashboard data (owner + receptionist)
+      responses:
+        '200':
+          description: KPI data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    description: Key performance indicators
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reports/appointments:
+    get:
+      tags: [Dashboard & Reports]
+      summary: Appointments report
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - $ref: '#/components/parameters/ProviderIdFilter'
+      responses:
+        '200':
+          $ref: '#/components/responses/ReportResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reports/production:
+    get:
+      tags: [Dashboard & Reports]
+      summary: Production report
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - $ref: '#/components/parameters/ProviderIdFilter'
+      responses:
+        '200':
+          $ref: '#/components/responses/ReportResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reports/collections:
+    get:
+      tags: [Dashboard & Reports]
+      summary: Collections report
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - $ref: '#/components/parameters/ProviderIdFilter'
+      responses:
+        '200':
+          $ref: '#/components/responses/ReportResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reports/recall-performance:
+    get:
+      tags: [Dashboard & Reports]
+      summary: Recall performance report
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+      responses:
+        '200':
+          $ref: '#/components/responses/ReportResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reports/inventory:
+    get:
+      tags: [Dashboard & Reports]
+      summary: Inventory report
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/ReportResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ── AUDIT LOGS ────────────────────────────────────────────────────────────
+
+  /audit-logs:
+    get:
+      tags: [Audit Logs]
+      summary: List audit log entries (owner only)
+      parameters:
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Page'
+        - name: auditable_type
+          in: query
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          schema:
+            type: integer
+        - name: event
+          in: query
+          schema:
+            type: string
+            enum: [created, updated, deleted, restored]
+      responses:
+        '200':
+          $ref: '#/components/responses/AuditLogList'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /audit-logs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [Audit Logs]
+      summary: Get an audit log entry
+      responses:
+        '200':
+          $ref: '#/components/responses/AuditLogItem'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+    sanctum:
+      type: http
+      scheme: bearer
+      bearerFormat: Laravel Sanctum personal access token
+
+  parameters:
+
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+    PerPage:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 15
+
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    DateFrom:
+      name: date_from
+      in: query
+      schema:
+        type: string
+        format: date
+
+    DateTo:
+      name: date_to
+      in: query
+      schema:
+        type: string
+        format: date
+
+    ProviderIdFilter:
+      name: provider_id
+      in: query
+      schema:
+        type: integer
+
+  responses:
+
+    ValidationError:
+      description: Unprocessable content
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    UserList:
+      description: Paginated list of users
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+
+    UserItem:
+      description: Single user
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/User'
+
+    OperatoryList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Operatory'
+
+    OperatoryItem:
+      description: Single operatory
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Operatory'
+
+    AppointmentTypeList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AppointmentType'
+
+    AppointmentTypeItem:
+      description: Single appointment type
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/AppointmentType'
+
+    ProcedureCodeList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProcedureCode'
+
+    ProcedureCodeItem:
+      description: Single procedure code
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/ProcedureCode'
+
+    PaymentMethodList:
+      description: List of payment methods
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentMethod'
+
+    PaymentMethodItem:
+      description: Single payment method
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PaymentMethod'
+
+    ProviderList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Provider'
+
+    ProviderItem:
+      description: Single provider
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Provider'
+
+    PatientList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Patient'
+
+    PatientItem:
+      description: Single patient
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Patient'
+
+    PatientContactList:
+      description: List of contacts
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientContact'
+
+    PatientContactItem:
+      description: Single contact
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PatientContact'
+
+    PatientAllergyList:
+      description: List of allergies
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientAllergy'
+
+    PatientAllergyItem:
+      description: Single allergy
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PatientAllergy'
+
+    PatientConditionList:
+      description: List of conditions
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientCondition'
+
+    PatientConditionItem:
+      description: Single condition
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PatientCondition'
+
+    PatientMedicationList:
+      description: List of medications
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientMedication'
+
+    PatientMedicationItem:
+      description: Single medication
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PatientMedication'
+
+    PatientConsentList:
+      description: List of consents
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientConsent'
+
+    PatientConsentItem:
+      description: Single consent
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PatientConsent'
+
+    MedicalCaseList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatientMedicalCase'
+
+    MedicalCaseItem:
+      description: Single medical case
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PatientMedicalCase'
+
+    DocumentList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatientMedicalDocument'
+
+    DocumentItem:
+      description: Single document
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PatientMedicalDocument'
+
+    AppointmentList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Appointment'
+
+    AppointmentItem:
+      description: Single appointment
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Appointment'
+
+    ScheduleBlockList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScheduleBlock'
+
+    ScheduleBlockItem:
+      description: Single schedule block
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/ScheduleBlock'
+
+    RecallList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recall'
+
+    RecallItem:
+      description: Single recall
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Recall'
+
+    CommunicationLogList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CommunicationLog'
+
+    CommunicationLogItem:
+      description: Single log entry
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/CommunicationLog'
+
+    InvoiceList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invoice'
+
+    InvoiceItem:
+      description: Single invoice
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Invoice'
+
+    InvoiceItemList:
+      description: List of line items
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InvoiceLineItem'
+
+    InvoiceItemSingle:
+      description: Single line item
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/InvoiceLineItem'
+
+    PaymentList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Payment'
+
+    PaymentItem:
+      description: Single payment
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Payment'
+
+    PaymentPlanList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentPlan'
+
+    PaymentPlanItem:
+      description: Single payment plan
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PaymentPlan'
+
+    InventoryItemList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InventoryItem'
+
+    InventoryItemSingle:
+      description: Single inventory item
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/InventoryItem'
+
+    StockMovementList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StockMovement'
+
+    SupplierList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Supplier'
+
+    SupplierItem:
+      description: Single supplier
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Supplier'
+
+    PurchaseOrderList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PurchaseOrder'
+
+    PurchaseOrderItem:
+      description: Single purchase order
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PurchaseOrder'
+
+    EncounterList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Encounter'
+
+    EncounterItem:
+      description: Single encounter
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Encounter'
+
+    OdontogramEntryList:
+      description: List of odontogram entries
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OdontogramEntry'
+
+    OdontogramEntryItem:
+      description: Single entry
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/OdontogramEntry'
+
+    PerioExamList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PerioExam'
+
+    PerioExamItem:
+      description: Single perio exam
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PerioExam'
+
+    PerioMeasureItem:
+      description: Single measurement
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PerioMeasure'
+
+    TreatmentPlanList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TreatmentPlan'
+
+    TreatmentPlanItem:
+      description: Single treatment plan
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/TreatmentPlan'
+
+    PrescriptionList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Prescription'
+
+    PrescriptionItem:
+      description: Single prescription
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Prescription'
+
+    AiResultList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AiResult'
+
+    AiResultItem:
+      description: Single AI result
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/AiResult'
+
+    AuditLogList:
+      description: Paginated list
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedMeta'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+
+    AuditLogItem:
+      description: Single audit log entry
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/AuditLog'
+
+    ReportResponse:
+      description: Report data
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                description: Report payload (structure varies per report)
+
+  schemas:
+
+    # ── Shared ────────────────────────────────────────────────────────────────
+
+    PaginatedMeta:
+      type: object
+      properties:
+        meta:
+          type: object
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+        links:
+          type: object
+          properties:
+            first:
+              type: string
+            last:
+              type: string
+            prev:
+              type: string
+              nullable: true
+            next:
+              type: string
+              nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    # ── Enums ─────────────────────────────────────────────────────────────────
+
+    UserRole:
+      type: string
+      enum: [owner, receptionist, provider, assistant]
+
+    AppointmentStatus:
+      type: string
+      enum: [scheduled, confirmed, completed, cancelled, no_show]
+
+    RecallStatus:
+      type: string
+      enum: [pending, sent, booked, dismissed]
+
+    InvoiceStatus:
+      type: string
+      enum: [draft, finalized, paid, partial, void]
+
+    DocumentType:
+      type: string
+      enum:
+        - xray
+        - panoramic
+        - cephalometric
+        - intraoral_photo
+        - lab_result
+        - referral_letter
+        - consent_form
+        - old_treatment_record
+        - prescription_scan
+        - other
+
+    MedicalCaseType:
+      type: string
+      enum:
+        - examination
+        - extraction
+        - filling
+        - root_canal
+        - crown
+        - implant
+        - orthodontics
+        - periodontal
+        - surgery
+        - consultation
+        - other
+
+    OdontogramEntryType:
+      type: string
+      enum: [condition, procedure]
+
+    PerioSite:
+      type: string
+      enum: [MB, B, DB, ML, L, DL]
+
+    StockMovementType:
+      type: string
+      enum: [in, out, adjustment, expired]
+
+    AiAnalysisType:
+      type: string
+      enum: [xray_analysis, soap_suggestion, prescription_suggestion, perio_risk]
+
+    AiResultStatus:
+      type: string
+      enum: [pending, accepted, dismissed]
+
+    # ── Auth ──────────────────────────────────────────────────────────────────
+
+    LoginRequest:
+      type: object
+      required: [email, password, device_name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        device_name:
+          type: string
+          maxLength: 255
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        abilities:
+          type: array
+          items:
+            type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    # ── Models ────────────────────────────────────────────────────────────────
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    StoreUserRequest:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        role:
+          $ref: '#/components/schemas/UserRole'
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        role:
+          $ref: '#/components/schemas/UserRole'
+
+    Operatory:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        color:
+          type: string
+          example: '#3B82F6'
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    StoreOperatoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          nullable: true
+        is_active:
+          type: boolean
+          default: true
+
+    AppointmentType:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        duration_minutes:
+          type: integer
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    StoreAppointmentTypeRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        duration_minutes:
+          type: integer
+          nullable: true
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          nullable: true
+        is_active:
+          type: boolean
+          default: true
+
+    ProcedureCode:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        description:
+          type: string
+        fee_default:
+          type: number
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    StoreProcedureCodeRequest:
+      type: object
+      required: [code, description]
+      properties:
+        code:
+          type: string
+          maxLength: 20
+        description:
+          type: string
+          maxLength: 255
+        fee_default:
+          type: number
+          minimum: 0
+          default: 0
+        is_active:
+          type: boolean
+          default: true
+
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    StorePaymentMethodRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        is_active:
+          type: boolean
+          default: true
+
+    Provider:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+          nullable: true
+        operatory_id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        specialty:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        license_number:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    StoreProviderRequest:
+      type: object
+      required: [name]
+      properties:
+        user_id:
+          type: integer
+          nullable: true
+        operatory_id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          maxLength: 255
+        specialty:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        license_number:
+          type: string
+          maxLength: 100
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+          default: true
+
+    Patient:
+      type: object
+      properties:
+        id:
+          type: integer
+        first_name:
+          type: string
+        last_name:
+          type: string
+        full_name:
+          type: string
+        gender:
+          type: string
+          enum: [male, female, other]
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        age:
+          type: integer
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        emergency_contact_name:
+          type: string
+          nullable: true
+        emergency_contact_phone:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    StorePatientRequest:
+      type: object
+      required: [first_name, last_name]
+      properties:
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        gender:
+          type: string
+          enum: [male, female, other]
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        emergency_contact_name:
+          type: string
+          maxLength: 255
+          nullable: true
+        emergency_contact_phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+          default: true
+
+    PatientContact:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        label:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        relationship:
+          type: string
+          nullable: true
+        is_emergency:
+          type: boolean
+
+    StorePatientContactRequest:
+      type: object
+      required: [label, name]
+      properties:
+        label:
+          type: string
+          maxLength: 50
+        name:
+          type: string
+          maxLength: 255
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        relationship:
+          type: string
+          maxLength: 100
+          nullable: true
+        is_emergency:
+          type: boolean
+          default: false
+
+    PatientAllergy:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        allergen:
+          type: string
+        reaction:
+          type: string
+          nullable: true
+        severity:
+          type: string
+          enum: [mild, moderate, severe]
+          nullable: true
+        noted_by:
+          type: integer
+          nullable: true
+        noted_at:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    StorePatientAllergyRequest:
+      type: object
+      required: [allergen]
+      properties:
+        allergen:
+          type: string
+          maxLength: 255
+        reaction:
+          type: string
+          maxLength: 255
+          nullable: true
+        severity:
+          type: string
+          enum: [mild, moderate, severe]
+          nullable: true
+        noted_by:
+          type: integer
+          nullable: true
+        noted_at:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    PatientCondition:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        condition:
+          type: string
+        icd_code:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, resolved]
+        onset_date:
+          type: string
+          format: date
+          nullable: true
+        noted_by:
+          type: integer
+          nullable: true
+        noted_at:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    StorePatientConditionRequest:
+      type: object
+      required: [condition]
+      properties:
+        condition:
+          type: string
+          maxLength: 255
+        icd_code:
+          type: string
+          maxLength: 20
+          nullable: true
+        status:
+          type: string
+          enum: [active, resolved]
+          default: active
+        onset_date:
+          type: string
+          format: date
+          nullable: true
+        noted_by:
+          type: integer
+          nullable: true
+        noted_at:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    PatientMedication:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        drug_name:
+          type: string
+        dose:
+          type: string
+          nullable: true
+        frequency:
+          type: string
+          nullable: true
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        prescribed_by:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    StorePatientMedicationRequest:
+      type: object
+      required: [drug_name]
+      properties:
+        drug_name:
+          type: string
+          maxLength: 255
+        dose:
+          type: string
+          maxLength: 100
+          nullable: true
+        frequency:
+          type: string
+          maxLength: 100
+          nullable: true
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        prescribed_by:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    PatientConsent:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        consent_type:
+          type: string
+        signed_at:
+          type: string
+          format: date-time
+          nullable: true
+        signed_by_patient:
+          type: boolean
+        witness_provider_id:
+          type: integer
+          nullable: true
+        file_path:
+          type: string
+          nullable: true
+
+    StorePatientConsentRequest:
+      type: object
+      required: [consent_type]
+      properties:
+        consent_type:
+          type: string
+          maxLength: 255
+        signed_at:
+          type: string
+          format: date-time
+          nullable: true
+        signed_by_patient:
+          type: boolean
+          default: false
+        witness_provider_id:
+          type: integer
+          nullable: true
+        file_path:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    PatientMedicalCase:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+          nullable: true
+        case_date:
+          type: string
+          format: date
+        case_type:
+          $ref: '#/components/schemas/MedicalCaseType'
+        chief_complaint:
+          type: string
+          nullable: true
+        diagnosis:
+          type: string
+          nullable: true
+        treatment_performed:
+          type: string
+          nullable: true
+        outcome:
+          type: string
+          nullable: true
+        is_external:
+          type: boolean
+        previous_clinic:
+          type: string
+          nullable: true
+        previous_dentist:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        documents_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    StorePatientMedicalCaseRequest:
+      type: object
+      required: [case_date, case_type]
+      properties:
+        provider_id:
+          type: integer
+          nullable: true
+        case_date:
+          type: string
+          format: date
+        case_type:
+          $ref: '#/components/schemas/MedicalCaseType'
+        chief_complaint:
+          type: string
+          maxLength: 500
+          nullable: true
+        diagnosis:
+          type: string
+          nullable: true
+        treatment_performed:
+          type: string
+          nullable: true
+        outcome:
+          type: string
+          nullable: true
+        is_external:
+          type: boolean
+          default: false
+        previous_clinic:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: Required when is_external is true
+        previous_dentist:
+          type: string
+          maxLength: 255
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    PatientMedicalDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        medical_case_id:
+          type: integer
+          nullable: true
+        provider_id:
+          type: integer
+          nullable: true
+        document_type:
+          $ref: '#/components/schemas/DocumentType'
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        file_path:
+          type: string
+        file_size_kb:
+          type: integer
+        mime_type:
+          type: string
+        taken_at:
+          type: string
+          format: date
+          nullable: true
+        external_source:
+          type: string
+          nullable: true
+        is_visible_to_patient:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    StorePatientMedicalDocumentRequest:
+      type: object
+      required: [file, document_type, title]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: Max 20 MB. Accepted types&#58; jpg, jpeg, png, pdf, dcm, doc, docx
+        document_type:
+          $ref: '#/components/schemas/DocumentType'
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        medical_case_id:
+          type: integer
+          nullable: true
+        provider_id:
+          type: integer
+          nullable: true
+        taken_at:
+          type: string
+          format: date
+          nullable: true
+        external_source:
+          type: string
+          maxLength: 255
+          nullable: true
+        is_visible_to_patient:
+          type: boolean
+          default: false
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+        appointment_type_id:
+          type: integer
+          nullable: true
+        operatory_id:
+          type: integer
+          nullable: true
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/AppointmentStatus'
+        chief_complaint:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        reminder_sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    StoreAppointmentRequest:
+      type: object
+      required: [patient_id, provider_id, start_at, end_at]
+      properties:
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+        appointment_type_id:
+          type: integer
+          nullable: true
+        operatory_id:
+          type: integer
+          nullable: true
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+          description: Must be after start_at and on the same day
+        status:
+          $ref: '#/components/schemas/AppointmentStatus'
+        chief_complaint:
+          type: string
+          maxLength: 500
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          nullable: true
+
+    UpdateAppointmentRequest:
+      type: object
+      description: All fields optional. Providers may only update `notes`.
+      properties:
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+        appointment_type_id:
+          type: integer
+          nullable: true
+        operatory_id:
+          type: integer
+          nullable: true
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/AppointmentStatus'
+        chief_complaint:
+          type: string
+          maxLength: 500
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          nullable: true
+
+    ScheduleBlock:
+      type: object
+      properties:
+        id:
+          type: integer
+        provider_id:
+          type: integer
+          nullable: true
+        operatory_id:
+          type: integer
+          nullable: true
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    StoreScheduleBlockRequest:
+      type: object
+      required: [start_at, end_at]
+      properties:
+        provider_id:
+          type: integer
+          nullable: true
+        operatory_id:
+          type: integer
+          nullable: true
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          maxLength: 255
+          nullable: true
+
+    Recall:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        due_date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/RecallStatus'
+        last_reminder_sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    StoreRecallRequest:
+      type: object
+      required: [patient_id, due_date]
+      properties:
+        patient_id:
+          type: integer
+        due_date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/RecallStatus'
+        notes:
+          type: string
+          nullable: true
+
+    CommunicationLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        recall_id:
+          type: integer
+          nullable: true
+        channel:
+          type: string
+          example: sms
+        direction:
+          type: string
+          enum: [in, out]
+        subject:
+          type: string
+          nullable: true
+        body_preview:
+          type: string
+          nullable: true
+        status:
+          type: string
+          example: queued
+        created_at:
+          type: string
+          format: date-time
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        appointment_id:
+          type: integer
+          nullable: true
+        provider_id:
+          type: integer
+          nullable: true
+        issued_at:
+          type: string
+          format: date
+        due_at:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/InvoiceStatus'
+        subtotal:
+          type: number
+        discount:
+          type: number
+        tax:
+          type: number
+        total:
+          type: number
+        notes:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvoiceLineItem'
+        created_at:
+          type: string
+          format: date-time
+
+    StoreInvoiceRequest:
+      type: object
+      required: [patient_id, issued_at, items]
+      properties:
+        patient_id:
+          type: integer
+        appointment_id:
+          type: integer
+          nullable: true
+        provider_id:
+          type: integer
+          nullable: true
+        issued_at:
+          type: string
+          format: date
+        due_at:
+          type: string
+          format: date
+          nullable: true
+        discount:
+          type: number
+          minimum: 0
+          default: 0
+        tax:
+          type: number
+          minimum: 0
+          default: 0
+        notes:
+          type: string
+          nullable: true
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/InvoiceLineItemInput'
+
+    InvoiceLineItemInput:
+      type: object
+      required: [description, qty, unit_price]
+      properties:
+        description:
+          type: string
+          maxLength: 255
+        procedure_code_id:
+          type: integer
+          nullable: true
+        tooth_number:
+          type: string
+          maxLength: 10
+          nullable: true
+        qty:
+          type: integer
+          minimum: 1
+        unit_price:
+          type: number
+          minimum: 0
+
+    InvoiceLineItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        invoice_id:
+          type: integer
+        description:
+          type: string
+        procedure_code_id:
+          type: integer
+          nullable: true
+        tooth_number:
+          type: string
+          nullable: true
+        qty:
+          type: integer
+        unit_price:
+          type: number
+        total:
+          type: number
+
+    StoreInvoiceItemRequest:
+      type: object
+      required: [description, qty, unit_price]
+      properties:
+        description:
+          type: string
+          maxLength: 255
+        procedure_code_id:
+          type: integer
+          nullable: true
+        tooth_number:
+          type: string
+          maxLength: 10
+          nullable: true
+        qty:
+          type: integer
+          minimum: 1
+        unit_price:
+          type: number
+          minimum: 0
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+        invoice_id:
+          type: integer
+        payment_method_id:
+          type: integer
+          nullable: true
+        amount:
+          type: number
+        paid_at:
+          type: string
+          format: date
+        reference:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    StorePaymentRequest:
+      type: object
+      required: [invoice_id, amount, paid_at]
+      properties:
+        invoice_id:
+          type: integer
+        payment_method_id:
+          type: integer
+          nullable: true
+        amount:
+          type: number
+          minimum: 0.01
+        paid_at:
+          type: string
+          format: date
+        reference:
+          type: string
+          maxLength: 255
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    PaymentPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        invoice_id:
+          type: integer
+          nullable: true
+        total_amount:
+          type: number
+        installments:
+          type: integer
+        start_date:
+          type: string
+          format: date
+        status:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    StorePaymentPlanRequest:
+      type: object
+      required: [patient_id, total_amount, installments, start_date]
+      properties:
+        patient_id:
+          type: integer
+        invoice_id:
+          type: integer
+          nullable: true
+        total_amount:
+          type: number
+          minimum: 0.01
+        installments:
+          type: integer
+          minimum: 2
+          maximum: 60
+        start_date:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+
+    InventoryItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        supplier_id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        sku:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        unit:
+          type: string
+        current_stock:
+          type: integer
+        reorder_level:
+          type: integer
+        unit_cost:
+          type: number
+        is_active:
+          type: boolean
+        is_low_stock:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    StoreInventoryItemRequest:
+      type: object
+      required: [name]
+      properties:
+        supplier_id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          maxLength: 255
+        sku:
+          type: string
+          maxLength: 100
+          nullable: true
+        category:
+          type: string
+          maxLength: 100
+          nullable: true
+        unit:
+          type: string
+          maxLength: 50
+          default: pcs
+        current_stock:
+          type: integer
+          minimum: 0
+          default: 0
+        reorder_level:
+          type: integer
+          minimum: 0
+          default: 0
+        unit_cost:
+          type: number
+          minimum: 0
+          default: 0
+        is_active:
+          type: boolean
+          default: true
+
+    AdjustStockRequest:
+      type: object
+      required: [movement_type, quantity]
+      properties:
+        movement_type:
+          $ref: '#/components/schemas/StockMovementType'
+        quantity:
+          type: integer
+          description: Non-zero integer
+        reason:
+          type: string
+          maxLength: 255
+          nullable: true
+        reference:
+          type: string
+          maxLength: 255
+          nullable: true
+        performed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    StockMovement:
+      type: object
+      properties:
+        id:
+          type: integer
+        inventory_item_id:
+          type: integer
+        movement_type:
+          $ref: '#/components/schemas/StockMovementType'
+        quantity:
+          type: integer
+        stock_after:
+          type: integer
+        reason:
+          type: string
+          nullable: true
+        reference:
+          type: string
+          nullable: true
+        performed_at:
+          type: string
+          format: date-time
+        performed_by:
+          type: integer
+          nullable: true
+
+    Supplier:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        contact_name:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    StoreSupplierRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        contact_name:
+          type: string
+          maxLength: 255
+          nullable: true
+        phone:
+          type: string
+          maxLength: 30
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+          default: true
+
+    PurchaseOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+        supplier_id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, received, cancelled]
+        ordered_at:
+          type: string
+          format: date
+          nullable: true
+        expected_at:
+          type: string
+          format: date
+          nullable: true
+        received_at:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderLineItem'
+        created_at:
+          type: string
+          format: date-time
+
+    PurchaseOrderLineItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        inventory_item_id:
+          type: integer
+        quantity_ordered:
+          type: integer
+        quantity_received:
+          type: integer
+          nullable: true
+        unit_cost:
+          type: number
+
+    StorePurchaseOrderRequest:
+      type: object
+      required: [supplier_id, items]
+      properties:
+        supplier_id:
+          type: integer
+        ordered_at:
+          type: string
+          format: date
+          nullable: true
+        expected_at:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [inventory_item_id, quantity_ordered, unit_cost]
+            properties:
+              inventory_item_id:
+                type: integer
+              quantity_ordered:
+                type: integer
+                minimum: 1
+              unit_cost:
+                type: number
+                minimum: 0
+
+    Encounter:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+        appointment_id:
+          type: integer
+          nullable: true
+        encounter_date:
+          type: string
+          format: date
+        subjective:
+          type: string
+          nullable: true
+        objective:
+          type: string
+          nullable: true
+        assessment:
+          type: string
+          nullable: true
+        plan:
+          type: string
+          nullable: true
+        is_locked:
+          type: boolean
+        locked_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    StoreEncounterRequest:
+      type: object
+      required: [patient_id, provider_id, encounter_date]
+      properties:
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+        appointment_id:
+          type: integer
+          nullable: true
+        encounter_date:
+          type: string
+          format: date
+        subjective:
+          type: string
+          nullable: true
+        objective:
+          type: string
+          nullable: true
+        assessment:
+          type: string
+          nullable: true
+        plan:
+          type: string
+          nullable: true
+
+    UpdateEncounterRequest:
+      type: object
+      properties:
+        encounter_date:
+          type: string
+          format: date
+        subjective:
+          type: string
+          nullable: true
+        objective:
+          type: string
+          nullable: true
+        assessment:
+          type: string
+          nullable: true
+        plan:
+          type: string
+          nullable: true
+
+    OdontogramEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        encounter_id:
+          type: integer
+          nullable: true
+        provider_id:
+          type: integer
+          nullable: true
+        tooth_number:
+          type: integer
+          minimum: 11
+          maximum: 85
+        surface:
+          type: string
+          nullable: true
+        entry_type:
+          $ref: '#/components/schemas/OdontogramEntryType'
+        code:
+          type: string
+          nullable: true
+        color_hex:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        recorded_at:
+          type: string
+          format: date-time
+
+    StoreOdontogramEntryRequest:
+      type: object
+      required: [tooth_number, entry_type]
+      properties:
+        encounter_id:
+          type: integer
+          nullable: true
+        tooth_number:
+          type: integer
+          minimum: 11
+          maximum: 85
+        surface:
+          type: string
+          maxLength: 10
+          nullable: true
+        entry_type:
+          $ref: '#/components/schemas/OdontogramEntryType'
+        code:
+          type: string
+          maxLength: 20
+          nullable: true
+        color_hex:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        recorded_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    PerioExam:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+        exam_date:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        measures_count:
+          type: integer
+        measures:
+          type: array
+          items:
+            $ref: '#/components/schemas/PerioMeasure'
+        created_at:
+          type: string
+          format: date-time
+
+    PerioMeasure:
+      type: object
+      properties:
+        id:
+          type: integer
+        perio_exam_id:
+          type: integer
+        tooth_number:
+          type: integer
+        site:
+          $ref: '#/components/schemas/PerioSite'
+        probing_depth:
+          type: integer
+          nullable: true
+        recession:
+          type: integer
+          nullable: true
+        bleeding_on_probe:
+          type: boolean
+        furcation:
+          type: integer
+          nullable: true
+        mobility:
+          type: integer
+          nullable: true
+        suppuration:
+          type: boolean
+
+    StorePerioExamRequest:
+      type: object
+      required: [patient_id, provider_id, exam_date]
+      properties:
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+        exam_date:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        measures:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorePerioMeasureRequest'
+
+    StorePerioMeasureRequest:
+      type: object
+      required: [tooth_number, site]
+      properties:
+        tooth_number:
+          type: integer
+          minimum: 11
+          maximum: 85
+        site:
+          $ref: '#/components/schemas/PerioSite'
+        probing_depth:
+          type: integer
+          minimum: 0
+          maximum: 20
+          nullable: true
+        recession:
+          type: integer
+          minimum: -5
+          maximum: 15
+          nullable: true
+        bleeding_on_probe:
+          type: boolean
+          default: false
+        furcation:
+          type: integer
+          minimum: 0
+          maximum: 3
+          nullable: true
+        mobility:
+          type: integer
+          minimum: 0
+          maximum: 3
+          nullable: true
+        suppuration:
+          type: boolean
+          default: false
+
+    TreatmentPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+          enum: [draft, presented, accepted, rejected]
+        notes:
+          type: string
+          nullable: true
+        presented_at:
+          type: string
+          format: date-time
+          nullable: true
+        accepted_at:
+          type: string
+          format: date-time
+          nullable: true
+        rejected_at:
+          type: string
+          format: date-time
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TreatmentPlanLineItem'
+        created_at:
+          type: string
+          format: date-time
+
+    TreatmentPlanLineItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        treatment_plan_id:
+          type: integer
+        procedure_code_id:
+          type: integer
+          nullable: true
+        tooth_number:
+          type: integer
+          nullable: true
+        surface:
+          type: string
+          nullable: true
+        description:
+          type: string
+        fee:
+          type: number
+        sort_order:
+          type: integer
+        status:
+          type: string
+          nullable: true
+
+    StoreTreatmentPlanRequest:
+      type: object
+      required: [patient_id, provider_id, title]
+      properties:
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+        title:
+          type: string
+          maxLength: 255
+        notes:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            type: object
+            required: [description, fee]
+            properties:
+              procedure_code_id:
+                type: integer
+                nullable: true
+              tooth_number:
+                type: integer
+                minimum: 11
+                maximum: 85
+                nullable: true
+              surface:
+                type: string
+                maxLength: 10
+                nullable: true
+              description:
+                type: string
+                maxLength: 255
+              fee:
+                type: number
+                minimum: 0
+              sort_order:
+                type: integer
+                minimum: 0
+                nullable: true
+
+    Prescription:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+        provider_id:
+          type: integer
+        encounter_id:
+          type: integer
+          nullable: true
+        issued_at:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        is_printed:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrescriptionItem'
+        created_at:
+          type: string
+          format: date-time
+
+    PrescriptionItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        prescription_id:
+          type: integer
+        drug_name:
+          type: string
+        dose:
+          type: string
+          nullable: true
+        frequency:
+          type: string
+          nullable: true
+        duration:
+          type: string
+          nullable: true
+        quantity:
+          type: string
+          nullable: true
+        instructions:
+          type: string
+          nullable: true
+
+    PrescriptionItemInput:
+      type: object
+      required: [drug_name]
+      properties:
+        drug_name:
+          type: string
+          maxLength: 255
+        dose:
+          type: string
+          maxLength: 100
+          nullable: true
+        frequency:
+          type: string
+          maxLength: 100
+          nullable: true
+        duration:
+          type: string
+          maxLength: 100
+          nullable: true
+        quantity:
+          type: string
+          maxLength: 100
+          nullable: true
+        instructions:
+          type: string
+          nullable: true
+
+    StorePrescriptionRequest:
+      type: object
+      required: [patient_id, items]
+      properties:
+        patient_id:
+          type: integer
+        encounter_id:
+          type: integer
+          nullable: true
+        issued_at:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PrescriptionItemInput'
+
+    AiResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        patient_id:
+          type: integer
+          nullable: true
+        source_type:
+          type: string
+          description: Morph type — e.g. document, encounter
+        source_id:
+          type: integer
+          nullable: true
+        analysis_type:
+          $ref: '#/components/schemas/AiAnalysisType'
+        status:
+          $ref: '#/components/schemas/AiResultStatus'
+        input_summary:
+          type: string
+          nullable: true
+        result:
+          type: object
+          nullable: true
+          description: AI-generated structured payload (varies by analysis_type)
+        reviewer_notes:
+          type: string
+          nullable: true
+        requested_by:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+        reviewed_by:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    PatientAiInsights:
+      type: object
+      properties:
+        patient_id:
+          type: integer
+        risk_summary:
+          type: object
+          properties:
+            perio_risk_level:
+              type: string
+              nullable: true
+            perio_risk_score:
+              type: number
+              nullable: true
+        latest_results:
+          type: object
+          properties:
+            xray_analysis:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/AiResult'
+            soap_suggestion:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/AiResult'
+            prescription_suggestion:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/AiResult'
+            perio_risk:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/AiResult'
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+          nullable: true
+        user_name:
+          type: string
+          nullable: true
+        event:
+          type: string
+          enum: [created, updated, deleted, restored]
+        auditable_type:
+          type: string
+        auditable_id:
+          type: integer
+        old_values:
+          type: object
+          nullable: true
+        new_values:
+          type: object
+          nullable: true
+        ip_address:
+          type: string
+          nullable: true
+        user_agent:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    TimelineResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [appointment, medical_case, document, encounter, prescription]
+              date:
+                type: string
+                format: date-time
+              data:
+                type: object
+                description: Full resource payload for the event type
+        meta:
+          type: object
+          properties:
+            current_page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+            last_page:
+              type: integer
+            types:
+              type: array
+              items:
+                type: string
+
+    LedgerResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invoice'
+        summary:
+          type: object
+          properties:
+            total_billed:
+              type: number
+            total_paid:
+              type: number
+            outstanding:
+              type: number
+        meta:
+          type: object
+          properties:
+            current_page:
+              type: integer
+            last_page:
+              type: integer
+            total:
+              type: integer
+            per_page:
+              type: integer
