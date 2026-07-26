@@ -7,24 +7,30 @@ info:
     Covers authentication, patient records, appointments, clinical workflows,
     billing, inventory, AI-assisted analysis, and audit logging.
 
+    All response schemas are derived directly from the Laravel API Resource
+    classes (app/Http/Resources/). Every field listed in a response schema
+    is exactly what the API returns. Fields described as "Included when loaded"
+    are conditionally present — they appear only when the corresponding Eloquent
+    relation is eager-loaded by the controller.
+
     ## Authentication
-    All endpoints (except `POST /auth/login`) require a Bearer token obtained via login.
-    Tokens are issued with per-role abilities enforced by the `token.ability` middleware.
+    All endpoints except POST /auth/login require a Bearer token.
+    Tokens carry per-role abilities enforced by the token.ability middleware.
 
     ## Token Abilities by Role
     | Ability | owner | receptionist | provider | assistant |
     |---|---|---|---|---|
-    | `*` (all) | ✓ | | | |
-    | `patients:read/write` | ✓ | ✓ | read | read |
-    | `appointments:read/write` | ✓ | ✓ | ✓ | read |
-    | `clinical:read/write` | ✓ | read | ✓ | read |
-    | `billing:read/write` | ✓ | ✓ | read | |
-    | `recalls:read/write` | ✓ | ✓ | read | |
-    | `inventory:read/write` | ✓ | ✓ | | |
-    | `schedule-blocks:read/write` | ✓ | ✓ | read | read |
-    | `documents:write` | ✓ | | ✓ | ✓ |
+    | * (all) | yes | | | |
+    | patients:read/write | yes | yes | read | read |
+    | appointments:read/write | yes | yes | yes | read |
+    | clinical:read/write | yes | read | yes | read |
+    | billing:read/write | yes | yes | read | |
+    | recalls:read/write | yes | yes | read | |
+    | inventory:read/write | yes | yes | | |
+    | schedule-blocks:read/write | yes | yes | read | read |
+    | documents:write | yes | | yes | yes |
 
-  version: 1.0.0
+  version: 2.0.0
   contact:
     name: Haider Al-Haj Ahmed
     url: https://github.com/Haider-Haj-Ahmed/dental-clinic
@@ -38,67 +44,36 @@ security:
 
 tags:
   - name: Auth
-    description: Login, session info, logout
   - name: Users
-    description: Staff user management (owner only)
   - name: Providers
-    description: Dentist / provider profiles
   - name: Operatories
-    description: Treatment rooms
   - name: Appointment Types
-    description: Appointment type catalogue
   - name: Procedure Codes
-    description: Dental procedure code catalogue
   - name: Payment Methods
-    description: Payment method catalogue
   - name: Patients
-    description: Patient demographic records
   - name: Patient Sub-Resources
-    description: Contacts, allergies, conditions, medications, consents
   - name: Patient Medical Cases
-    description: Historical and current case records
   - name: Patient Documents
-    description: X-rays, photos, and other clinical documents
   - name: Appointments
-    description: Scheduling and appointment management
   - name: Schedule Blocks
-    description: Blocked time slots for providers / operatories
   - name: Recalls
-    description: Recall scheduling and reminder dispatch
   - name: Communication Logs
-    description: Outbound communication history
   - name: Encounters
-    description: SOAP-format clinical encounter notes
   - name: Odontogram
-    description: Per-tooth condition and procedure charting
   - name: Perio Exams
-    description: Periodontal examination records and measurements
   - name: Treatment Plans
-    description: Proposed treatment plan records
   - name: Prescriptions
-    description: Medication prescription records
   - name: Invoices
-    description: Billing invoices
   - name: Payments
-    description: Payment records
   - name: Payment Plans
-    description: Instalment payment plans
   - name: Inventory
-    description: Inventory item management and stock movements
   - name: Suppliers
-    description: Dental supply vendors
   - name: Purchase Orders
-    description: Stock purchase orders
   - name: AI Analysis
-    description: AI-assisted clinical insights (Phase 5)
   - name: Dashboard & Reports
-    description: KPI dashboard and management reports
   - name: Audit Logs
-    description: Immutable audit trail (owner only)
 
 paths:
-
-  # ── AUTH ──────────────────────────────────────────────────────────────────
 
   /auth/login:
     post:
@@ -113,7 +88,7 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Authenticated successfully
+          description: Authenticated
           content:
             application/json:
               schema:
@@ -133,6 +108,7 @@ paths:
           content:
             application/json:
               schema:
+                type: object
                 properties:
                   data:
                     $ref: '#/components/schemas/User'
@@ -160,8 +136,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
-
-  # ── USERS ─────────────────────────────────────────────────────────────────
 
   /users:
     get:
@@ -213,14 +187,16 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/UserItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Users]
       summary: Delete a user
       responses:
         '204':
           description: Deleted
-
-  # ── OPERATORIES ───────────────────────────────────────────────────────────
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /operatories:
     get:
@@ -256,6 +232,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/OperatoryItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Operatories]
       summary: Update an operatory
@@ -268,14 +246,14 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/OperatoryItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Operatories]
       summary: Delete an operatory
       responses:
         '204':
           description: Deleted
-
-  # ── APPOINTMENT TYPES ─────────────────────────────────────────────────────
 
   /appointment-types:
     get:
@@ -311,6 +289,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/AppointmentTypeItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Appointment Types]
       summary: Update an appointment type
@@ -323,14 +303,14 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/AppointmentTypeItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Appointment Types]
       summary: Delete an appointment type
       responses:
         '204':
           description: Deleted
-
-  # ── PROCEDURE CODES ───────────────────────────────────────────────────────
 
   /procedure-codes:
     get:
@@ -366,6 +346,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ProcedureCodeItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Procedure Codes]
       summary: Update a procedure code
@@ -378,14 +360,14 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ProcedureCodeItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Procedure Codes]
       summary: Delete a procedure code
       responses:
         '204':
           description: Deleted
-
-  # ── PAYMENT METHODS ───────────────────────────────────────────────────────
 
   /payment-methods:
     get:
@@ -418,6 +400,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PaymentMethodItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Payment Methods]
       summary: Update a payment method
@@ -430,14 +414,14 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PaymentMethodItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Payment Methods]
       summary: Delete a payment method
       responses:
         '204':
           description: Deleted
-
-  # ── PROVIDERS ─────────────────────────────────────────────────────────────
 
   /providers:
     get:
@@ -473,6 +457,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ProviderItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Providers]
       summary: Update a provider
@@ -485,14 +471,14 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ProviderItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Providers]
       summary: Delete a provider
       responses:
         '204':
           description: Deleted
-
-  # ── PATIENTS ──────────────────────────────────────────────────────────────
 
   /patients:
     get:
@@ -505,6 +491,7 @@ paths:
         - $ref: '#/components/parameters/Page'
         - name: search
           in: query
+          description: Search by name, phone, or email
           schema:
             type: string
         - name: is_active
@@ -562,6 +549,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PatientItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Patients]
       summary: Soft-delete a patient
@@ -580,7 +569,7 @@ paths:
           type: integer
     post:
       tags: [Patients]
-      summary: Archive a patient
+      summary: Archive a patient (sets is_active=false + soft-delete)
       security:
         - sanctum: [patients:write]
       responses:
@@ -668,8 +657,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/LedgerResponse'
 
-  # ── PATIENT SUB-RESOURCES ─────────────────────────────────────────────────
-
   /patients/{patient}/contacts:
     parameters:
       - name: patient
@@ -707,12 +694,14 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [Patient Sub-Resources]
-      summary: Get a contact (shallow)
+      summary: Get a contact (shallow route)
       security:
         - sanctum: [patients:read]
       responses:
         '200':
           $ref: '#/components/responses/PatientContactItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Patient Sub-Resources]
       summary: Update a contact
@@ -727,6 +716,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PatientContactItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Patient Sub-Resources]
       summary: Delete a contact
@@ -773,12 +764,14 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [Patient Sub-Resources]
-      summary: Get an allergy (shallow)
+      summary: Get an allergy (shallow route)
       security:
         - sanctum: [patients:read]
       responses:
         '200':
           $ref: '#/components/responses/PatientAllergyItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Patient Sub-Resources]
       summary: Update an allergy
@@ -793,6 +786,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PatientAllergyItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Patient Sub-Resources]
       summary: Delete an allergy
@@ -839,12 +834,14 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [Patient Sub-Resources]
-      summary: Get a condition (shallow)
+      summary: Get a condition (shallow route)
       security:
         - sanctum: [patients:read]
       responses:
         '200':
           $ref: '#/components/responses/PatientConditionItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Patient Sub-Resources]
       summary: Update a condition
@@ -859,6 +856,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PatientConditionItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Patient Sub-Resources]
       summary: Delete a condition
@@ -905,12 +904,14 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [Patient Sub-Resources]
-      summary: Get a medication (shallow)
+      summary: Get a medication (shallow route)
       security:
         - sanctum: [patients:read]
       responses:
         '200':
           $ref: '#/components/responses/PatientMedicationItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Patient Sub-Resources]
       summary: Update a medication
@@ -925,6 +926,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PatientMedicationItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Patient Sub-Resources]
       summary: Delete a medication
@@ -971,12 +974,14 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [Patient Sub-Resources]
-      summary: Get a consent (shallow)
+      summary: Get a consent (shallow route)
       security:
         - sanctum: [patients:read]
       responses:
         '200':
           $ref: '#/components/responses/PatientConsentItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Patient Sub-Resources]
       summary: Update a consent
@@ -991,6 +996,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PatientConsentItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Patient Sub-Resources]
       summary: Delete a consent
@@ -999,8 +1006,6 @@ paths:
       responses:
         '204':
           description: Deleted
-
-  # ── PATIENT MEDICAL CASES ─────────────────────────────────────────────────
 
   /patients/{patient}/medical-cases:
     parameters:
@@ -1057,6 +1062,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/MedicalCaseItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Patient Medical Cases]
       summary: Update a medical case
@@ -1071,6 +1078,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/MedicalCaseItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Patient Medical Cases]
       summary: Delete a medical case
@@ -1079,8 +1088,6 @@ paths:
       responses:
         '204':
           description: Deleted
-
-  # ── PATIENT DOCUMENTS ─────────────────────────────────────────────────────
 
   /patients/{patient}/documents:
     parameters:
@@ -1141,6 +1148,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/DocumentItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Patient Documents]
       summary: Update a document
@@ -1155,6 +1164,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/DocumentItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Patient Documents]
       summary: Delete a document
@@ -1178,7 +1189,7 @@ paths:
           type: integer
     get:
       tags: [Patient Documents]
-      summary: Download the document file
+      summary: Download the document file. Note — file_path is not in the JSON response; use this endpoint instead.
       security:
         - sanctum: [patients:read]
       responses:
@@ -1206,7 +1217,7 @@ paths:
           type: integer
     post:
       tags: [AI Analysis]
-      summary: Trigger AI analysis on a document (X-ray / image)
+      summary: Trigger AI analysis on a document. Returns existing pending result if one exists.
       security:
         - sanctum: [clinical:write]
       responses:
@@ -1214,8 +1225,6 @@ paths:
           $ref: '#/components/responses/AiResultItem'
         '422':
           $ref: '#/components/responses/ValidationError'
-
-  # ── APPOINTMENTS ──────────────────────────────────────────────────────────
 
   /appointments:
     get:
@@ -1279,9 +1288,11 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/AppointmentItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Appointments]
-      summary: Update an appointment
+      summary: Update an appointment. Providers may only send notes.
       security:
         - sanctum: [appointments:write]
       requestBody:
@@ -1293,6 +1304,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/AppointmentItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Appointments]
       summary: Delete an appointment
@@ -1301,8 +1314,6 @@ paths:
       responses:
         '204':
           description: Deleted
-
-  # ── SCHEDULE BLOCKS ───────────────────────────────────────────────────────
 
   /schedule-blocks:
     get:
@@ -1352,6 +1363,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ScheduleBlockItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Schedule Blocks]
       summary: Update a schedule block
@@ -1366,6 +1379,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ScheduleBlockItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Schedule Blocks]
       summary: Delete a schedule block
@@ -1374,8 +1389,6 @@ paths:
       responses:
         '204':
           description: Deleted
-
-  # ── RECALLS ───────────────────────────────────────────────────────────────
 
   /recalls:
     get:
@@ -1427,7 +1440,7 @@ paths:
   /recalls/due:
     get:
       tags: [Recalls]
-      summary: List recalls due today or overdue
+      summary: Recalls due today or overdue
       security:
         - sanctum: [recalls:read]
       parameters:
@@ -1440,7 +1453,7 @@ paths:
   /recalls/ai-prioritize:
     post:
       tags: [Recalls, AI Analysis]
-      summary: AI-prioritise pending recalls due in the next 30 days
+      summary: AI-prioritise pending recalls due in next 30 days
       security:
         - sanctum: [clinical:write]
       requestBody:
@@ -1471,6 +1484,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/RecallItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Recalls]
       summary: Update a recall
@@ -1485,6 +1500,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/RecallItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Recalls]
       summary: Delete a recall
@@ -1534,8 +1551,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
 
-  # ── COMMUNICATION LOGS ────────────────────────────────────────────────────
-
   /communication-logs:
     get:
       tags: [Communication Logs]
@@ -1560,8 +1575,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/CommunicationLogItem'
-
-  # ── INVOICES ──────────────────────────────────────────────────────────────
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /invoices:
     get:
@@ -1625,6 +1640,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/InvoiceItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Invoices]
       summary: Update an invoice (draft only)
@@ -1639,6 +1656,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/InvoiceItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Invoices]
       summary: Delete an invoice (draft only)
@@ -1690,7 +1709,7 @@ paths:
         - sanctum: [billing:read]
       responses:
         '200':
-          $ref: '#/components/responses/InvoiceItemList'
+          $ref: '#/components/responses/InvoiceLineItemList'
     post:
       tags: [Invoices]
       summary: Add a line item to an invoice
@@ -1701,10 +1720,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StoreInvoiceItemRequest'
+              $ref: '#/components/schemas/StoreInvoiceLineItemRequest'
       responses:
         '201':
-          $ref: '#/components/responses/InvoiceItemSingle'
+          $ref: '#/components/responses/InvoiceLineItemSingle'
         '422':
           $ref: '#/components/responses/ValidationError'
 
@@ -1713,7 +1732,7 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     put:
       tags: [Invoices]
-      summary: Update a line item (shallow)
+      summary: Update a line item (shallow route)
       security:
         - sanctum: [billing:write]
       requestBody:
@@ -1721,20 +1740,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StoreInvoiceItemRequest'
+              $ref: '#/components/schemas/StoreInvoiceLineItemRequest'
       responses:
         '200':
-          $ref: '#/components/responses/InvoiceItemSingle'
+          $ref: '#/components/responses/InvoiceLineItemSingle'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Invoices]
-      summary: Delete a line item (shallow)
+      summary: Delete a line item (shallow route)
       security:
         - sanctum: [billing:write]
       responses:
         '204':
           description: Deleted
-
-  # ── PAYMENTS ──────────────────────────────────────────────────────────────
 
   /payments:
     get:
@@ -1784,6 +1803,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PaymentItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
       tags: [Payments]
       summary: Reverse a payment
@@ -1792,8 +1813,6 @@ paths:
       responses:
         '204':
           description: Deleted
-
-  # ── PAYMENT PLANS ─────────────────────────────────────────────────────────
 
   /payment-plans:
     get:
@@ -1835,6 +1854,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PaymentPlanItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
       tags: [Payment Plans]
       summary: Delete a payment plan
@@ -1843,8 +1864,6 @@ paths:
       responses:
         '204':
           description: Deleted
-
-  # ── INVENTORY ─────────────────────────────────────────────────────────────
 
   /inventory-items:
     get:
@@ -1890,7 +1909,7 @@ paths:
   /inventory-items/low-stock:
     get:
       tags: [Inventory]
-      summary: Items at or below reorder level
+      summary: Items at or below their reorder level
       security:
         - sanctum: [inventory:read]
       parameters:
@@ -1911,6 +1930,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/InventoryItemSingle'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Inventory]
       summary: Update an inventory item
@@ -1925,6 +1946,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/InventoryItemSingle'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Inventory]
       summary: Delete an inventory item
@@ -1954,7 +1977,7 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     post:
       tags: [Inventory]
-      summary: Manually adjust stock
+      summary: Manually adjust stock for an item
       security:
         - sanctum: [inventory:write]
       requestBody:
@@ -1968,8 +1991,6 @@ paths:
           $ref: '#/components/responses/InventoryItemSingle'
         '422':
           $ref: '#/components/responses/ValidationError'
-
-  # ── SUPPLIERS ─────────────────────────────────────────────────────────────
 
   /suppliers:
     get:
@@ -2011,6 +2032,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/SupplierItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Suppliers]
       summary: Update a supplier
@@ -2025,6 +2048,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/SupplierItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Suppliers]
       summary: Delete a supplier
@@ -2033,8 +2058,6 @@ paths:
       responses:
         '204':
           description: Deleted
-
-  # ── PURCHASE ORDERS ───────────────────────────────────────────────────────
 
   /purchase-orders:
     get:
@@ -2052,8 +2075,7 @@ paths:
         - name: status
           in: query
           schema:
-            type: string
-            enum: [pending, received, cancelled]
+            $ref: '#/components/schemas/PurchaseOrderStatus'
       responses:
         '200':
           $ref: '#/components/responses/PurchaseOrderList'
@@ -2085,6 +2107,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PurchaseOrderItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
       tags: [Purchase Orders]
       summary: Delete a purchase order
@@ -2099,7 +2123,7 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     post:
       tags: [Purchase Orders]
-      summary: Mark received and update stock
+      summary: Mark received and update stock levels
       security:
         - sanctum: [inventory:write]
       responses:
@@ -2121,8 +2145,6 @@ paths:
           $ref: '#/components/responses/PurchaseOrderItem'
         '422':
           $ref: '#/components/responses/ValidationError'
-
-  # ── ENCOUNTERS ────────────────────────────────────────────────────────────
 
   /encounters:
     get:
@@ -2182,6 +2204,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/EncounterItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Encounters]
       summary: Update an encounter (must not be locked)
@@ -2196,6 +2220,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/EncounterItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Encounters]
       summary: Delete an encounter
@@ -2210,31 +2236,35 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     post:
       tags: [Encounters]
-      summary: Lock an encounter
+      summary: Lock an encounter (prevents further edits)
       security:
         - sanctum: [clinical:write]
       responses:
         '200':
           $ref: '#/components/responses/EncounterItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
 
   /encounters/{id}/unlock:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
     post:
       tags: [Encounters]
-      summary: Unlock an encounter
+      summary: Unlock a locked encounter
       security:
         - sanctum: [clinical:write]
       responses:
         '200':
           $ref: '#/components/responses/EncounterItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
 
   /encounters/{id}/suggest-soap:
     parameters:
       - $ref: '#/components/parameters/ResourceId'
     post:
       tags: [Encounters, AI Analysis]
-      summary: Request AI SOAP note suggestion
+      summary: Request AI SOAP suggestion. Returns existing pending if one exists.
       security:
         - sanctum: [clinical:write]
       responses:
@@ -2242,8 +2272,6 @@ paths:
           $ref: '#/components/responses/AiResultItem'
         '422':
           $ref: '#/components/responses/ValidationError'
-
-  # ── ODONTOGRAM ────────────────────────────────────────────────────────────
 
   /encounters/{encounter}/odontogram-entries:
     parameters:
@@ -2262,7 +2290,7 @@ paths:
           $ref: '#/components/responses/OdontogramEntryList'
     post:
       tags: [Odontogram]
-      summary: Add an odontogram entry
+      summary: Add an odontogram entry to an encounter
       security:
         - sanctum: [clinical:write]
       requestBody:
@@ -2286,7 +2314,7 @@ paths:
           type: integer
     get:
       tags: [Odontogram]
-      summary: Full odontogram chart for a patient
+      summary: Full odontogram chart for a patient (all encounters)
       security:
         - sanctum: [clinical:read]
       responses:
@@ -2310,6 +2338,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/OdontogramEntryItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Odontogram]
       summary: Delete an odontogram entry
@@ -2318,8 +2348,6 @@ paths:
       responses:
         '204':
           description: Deleted
-
-  # ── PERIO EXAMS ───────────────────────────────────────────────────────────
 
   /perio-exams:
     get:
@@ -2339,7 +2367,7 @@ paths:
           $ref: '#/components/responses/PerioExamList'
     post:
       tags: [Perio Exams]
-      summary: Create a perio exam
+      summary: Create a perio exam (optionally with measures inline)
       security:
         - sanctum: [clinical:write]
       requestBody:
@@ -2365,6 +2393,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PerioExamItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Perio Exams]
       summary: Update a perio exam
@@ -2379,6 +2409,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PerioExamItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Perio Exams]
       summary: Delete a perio exam
@@ -2430,7 +2462,7 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     post:
       tags: [Perio Exams, AI Analysis]
-      summary: Run AI perio risk scoring
+      summary: Run AI perio risk scoring. Returns existing pending if one exists.
       security:
         - sanctum: [clinical:write]
       responses:
@@ -2438,8 +2470,6 @@ paths:
           $ref: '#/components/responses/AiResultItem'
         '422':
           $ref: '#/components/responses/ValidationError'
-
-  # ── TREATMENT PLANS ───────────────────────────────────────────────────────
 
   /treatment-plans:
     get:
@@ -2461,8 +2491,7 @@ paths:
         - name: status
           in: query
           schema:
-            type: string
-            enum: [draft, presented, accepted, rejected]
+            $ref: '#/components/schemas/TreatmentPlanStatus'
       responses:
         '200':
           $ref: '#/components/responses/TreatmentPlanList'
@@ -2494,6 +2523,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/TreatmentPlanItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Treatment Plans]
       summary: Update a treatment plan
@@ -2508,6 +2539,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/TreatmentPlanItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Treatment Plans]
       summary: Delete a treatment plan
@@ -2553,8 +2586,6 @@ paths:
         '200':
           $ref: '#/components/responses/TreatmentPlanItem'
 
-  # ── PRESCRIPTIONS ─────────────────────────────────────────────────────────
-
   /prescriptions:
     get:
       tags: [Prescriptions]
@@ -2573,7 +2604,7 @@ paths:
           $ref: '#/components/responses/PrescriptionList'
     post:
       tags: [Prescriptions]
-      summary: Create a prescription
+      summary: Create a prescription with items
       security:
         - sanctum: [clinical:write]
       requestBody:
@@ -2599,6 +2630,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PrescriptionItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       tags: [Prescriptions]
       summary: Update a prescription
@@ -2613,6 +2646,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PrescriptionItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
     delete:
       tags: [Prescriptions]
       summary: Delete a prescription
@@ -2631,7 +2666,7 @@ paths:
           type: integer
     post:
       tags: [Prescriptions, AI Analysis]
-      summary: Request AI prescription suggestions
+      summary: Request AI prescription suggestions. Returns existing pending if one exists.
       security:
         - sanctum: [clinical:write]
       requestBody:
@@ -2654,8 +2689,6 @@ paths:
           $ref: '#/components/responses/AiResultItem'
         '422':
           $ref: '#/components/responses/ValidationError'
-
-  # ── AI RESULTS ────────────────────────────────────────────────────────────
 
   /patients/{patient}/ai-results:
     parameters:
@@ -2717,6 +2750,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/AiResultItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /ai-results/{result}/accept:
     parameters:
@@ -2727,7 +2762,7 @@ paths:
           type: integer
     post:
       tags: [AI Analysis]
-      summary: Accept an AI result
+      summary: Accept an AI result (status must be pending)
       requestBody:
         content:
           application/json:
@@ -2752,7 +2787,7 @@ paths:
           type: integer
     post:
       tags: [AI Analysis]
-      summary: Dismiss an AI result
+      summary: Dismiss an AI result (status must be pending)
       requestBody:
         content:
           application/json:
@@ -2777,7 +2812,7 @@ paths:
           type: integer
     post:
       tags: [AI Analysis, Encounters]
-      summary: Apply AI SOAP suggestion to its encounter
+      summary: Apply AI SOAP suggestion to its encounter. Provider may override individual fields before applying.
       requestBody:
         content:
           application/json:
@@ -2790,15 +2825,19 @@ paths:
                 subjective:
                   type: string
                   nullable: true
+                  description: Override AI value before applying
                 objective:
                   type: string
                   nullable: true
+                  description: Override AI value before applying
                 assessment:
                   type: string
                   nullable: true
+                  description: Override AI value before applying
                 plan:
                   type: string
                   nullable: true
+                  description: Override AI value before applying
       responses:
         '200':
           $ref: '#/components/responses/AiResultItem'
@@ -2814,7 +2853,7 @@ paths:
           type: integer
     post:
       tags: [AI Analysis, Prescriptions]
-      summary: Create a prescription from an AI suggestion
+      summary: Create a real prescription from an AI suggestion. Requesting user must have a provider profile.
       requestBody:
         required: true
         content:
@@ -2843,31 +2882,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  prescription:
-                    type: object
-                    properties:
-                      id:
-                        type: integer
-                      issued_at:
-                        type: string
-                        format: date-time
-                      items_count:
-                        type: integer
-                  ai_result:
-                    $ref: '#/components/schemas/AiResult'
+                $ref: '#/components/schemas/CreatePrescriptionFromAiResponse'
         '422':
           $ref: '#/components/responses/ValidationError'
-
-  # ── DASHBOARD & REPORTS ───────────────────────────────────────────────────
 
   /dashboard/kpis:
     get:
       tags: [Dashboard & Reports]
-      summary: KPI dashboard data (owner + receptionist)
+      summary: KPI dashboard data (owner + receptionist only)
       responses:
         '200':
           description: KPI data
@@ -2878,14 +2900,14 @@ paths:
                 properties:
                   data:
                     type: object
-                    description: Key performance indicators
+                    description: Key performance indicators (defined by ReportService)
         '403':
           $ref: '#/components/responses/Forbidden'
 
   /reports/appointments:
     get:
       tags: [Dashboard & Reports]
-      summary: Appointments report
+      summary: Appointments report (owner + receptionist only)
       parameters:
         - $ref: '#/components/parameters/DateFrom'
         - $ref: '#/components/parameters/DateTo'
@@ -2899,7 +2921,7 @@ paths:
   /reports/production:
     get:
       tags: [Dashboard & Reports]
-      summary: Production report
+      summary: Production report (owner + receptionist only)
       parameters:
         - $ref: '#/components/parameters/DateFrom'
         - $ref: '#/components/parameters/DateTo'
@@ -2913,7 +2935,7 @@ paths:
   /reports/collections:
     get:
       tags: [Dashboard & Reports]
-      summary: Collections report
+      summary: Collections report (owner + receptionist only)
       parameters:
         - $ref: '#/components/parameters/DateFrom'
         - $ref: '#/components/parameters/DateTo'
@@ -2927,7 +2949,7 @@ paths:
   /reports/recall-performance:
     get:
       tags: [Dashboard & Reports]
-      summary: Recall performance report
+      summary: Recall performance report (owner + receptionist only)
       parameters:
         - $ref: '#/components/parameters/DateFrom'
         - $ref: '#/components/parameters/DateTo'
@@ -2940,7 +2962,7 @@ paths:
   /reports/inventory:
     get:
       tags: [Dashboard & Reports]
-      summary: Inventory report
+      summary: Inventory report (owner + receptionist only)
       parameters:
         - $ref: '#/components/parameters/DateFrom'
         - $ref: '#/components/parameters/DateTo'
@@ -2954,8 +2976,6 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  # ── AUDIT LOGS ────────────────────────────────────────────────────────────
-
   /audit-logs:
     get:
       tags: [Audit Logs]
@@ -2963,19 +2983,19 @@ paths:
       parameters:
         - $ref: '#/components/parameters/PerPage'
         - $ref: '#/components/parameters/Page'
-        - name: auditable_type
+        - name: model_type
           in: query
+          description: Short class name e.g. Patient, Invoice, Encounter
           schema:
             type: string
         - name: user_id
           in: query
           schema:
             type: integer
-        - name: event
+        - name: action
           in: query
           schema:
-            type: string
-            enum: [created, updated, deleted, restored]
+            $ref: '#/components/schemas/AuditAction'
       responses:
         '200':
           $ref: '#/components/responses/AuditLogList'
@@ -2987,7 +3007,7 @@ paths:
       - $ref: '#/components/parameters/ResourceId'
     get:
       tags: [Audit Logs]
-      summary: Get an audit log entry
+      summary: Get an audit log entry (owner only)
       responses:
         '200':
           $ref: '#/components/responses/AuditLogItem'
@@ -2995,7 +3015,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
 components:
 
   securitySchemes:
@@ -3067,7 +3086,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
     Forbidden:
-      description: Forbidden
+      description: Forbidden — insufficient role or token ability
       content:
         application/json:
           schema:
@@ -3081,7 +3100,7 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
     UserList:
-      description: Paginated list of users
+      description: Paginated list
       content:
         application/json:
           schema:
@@ -3247,7 +3266,7 @@ components:
                 $ref: '#/components/schemas/Patient'
 
     PatientContactList:
-      description: List of contacts
+      description: List
       content:
         application/json:
           schema:
@@ -3259,7 +3278,7 @@ components:
                   $ref: '#/components/schemas/PatientContact'
 
     PatientContactItem:
-      description: Single contact
+      description: Single
       content:
         application/json:
           schema:
@@ -3269,7 +3288,7 @@ components:
                 $ref: '#/components/schemas/PatientContact'
 
     PatientAllergyList:
-      description: List of allergies
+      description: List
       content:
         application/json:
           schema:
@@ -3281,7 +3300,7 @@ components:
                   $ref: '#/components/schemas/PatientAllergy'
 
     PatientAllergyItem:
-      description: Single allergy
+      description: Single
       content:
         application/json:
           schema:
@@ -3291,7 +3310,7 @@ components:
                 $ref: '#/components/schemas/PatientAllergy'
 
     PatientConditionList:
-      description: List of conditions
+      description: List
       content:
         application/json:
           schema:
@@ -3303,7 +3322,7 @@ components:
                   $ref: '#/components/schemas/PatientCondition'
 
     PatientConditionItem:
-      description: Single condition
+      description: Single
       content:
         application/json:
           schema:
@@ -3313,7 +3332,7 @@ components:
                 $ref: '#/components/schemas/PatientCondition'
 
     PatientMedicationList:
-      description: List of medications
+      description: List
       content:
         application/json:
           schema:
@@ -3325,7 +3344,7 @@ components:
                   $ref: '#/components/schemas/PatientMedication'
 
     PatientMedicationItem:
-      description: Single medication
+      description: Single
       content:
         application/json:
           schema:
@@ -3335,7 +3354,7 @@ components:
                 $ref: '#/components/schemas/PatientMedication'
 
     PatientConsentList:
-      description: List of consents
+      description: List
       content:
         application/json:
           schema:
@@ -3347,7 +3366,7 @@ components:
                   $ref: '#/components/schemas/PatientConsent'
 
     PatientConsentItem:
-      description: Single consent
+      description: Single
       content:
         application/json:
           schema:
@@ -3524,7 +3543,7 @@ components:
               data:
                 $ref: '#/components/schemas/Invoice'
 
-    InvoiceItemList:
+    InvoiceLineItemList:
       description: List of line items
       content:
         application/json:
@@ -3536,7 +3555,7 @@ components:
                 items:
                   $ref: '#/components/schemas/InvoiceLineItem'
 
-    InvoiceItemSingle:
+    InvoiceLineItemSingle:
       description: Single line item
       content:
         application/json:
@@ -3705,7 +3724,7 @@ components:
                 $ref: '#/components/schemas/Encounter'
 
     OdontogramEntryList:
-      description: List of odontogram entries
+      description: List of entries
       content:
         application/json:
           schema:
@@ -3857,7 +3876,7 @@ components:
                 $ref: '#/components/schemas/AuditLog'
 
     ReportResponse:
-      description: Report data
+      description: Report data (structure varies per report — defined by ReportService)
       content:
         application/json:
           schema:
@@ -3865,7 +3884,6 @@ components:
             properties:
               data:
                 type: object
-                description: Report payload (structure varies per report)
 
   schemas:
 
@@ -3941,6 +3959,10 @@ components:
       type: string
       enum: [draft, finalized, paid, partial, void]
 
+    TreatmentPlanStatus:
+      type: string
+      enum: [draft, presented, accepted, rejected]
+
     DocumentType:
       type: string
       enum:
@@ -3982,6 +4004,10 @@ components:
       type: string
       enum: [in, out, adjustment, expired]
 
+    PurchaseOrderStatus:
+      type: string
+      enum: [pending, received, cancelled]
+
     AiAnalysisType:
       type: string
       enum: [xray_analysis, soap_suggestion, prescription_suggestion, perio_risk]
@@ -3989,6 +4015,10 @@ components:
     AiResultStatus:
       type: string
       enum: [pending, accepted, dismissed]
+
+    AuditAction:
+      type: string
+      enum: [created, updated, deleted, restored]
 
     # ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -4010,16 +4040,19 @@ components:
       properties:
         token:
           type: string
+          description: Bearer token for all subsequent requests
         abilities:
           type: array
           items:
             type: string
+          description: Token abilities granted based on the authenticated user role
         user:
           $ref: '#/components/schemas/User'
 
-    # ── Models ────────────────────────────────────────────────────────────────
+    # ── Core lookup models ────────────────────────────────────────────────────
 
     User:
+      description: "Source: UserResource"
       type: object
       properties:
         id:
@@ -4069,6 +4102,7 @@ components:
           $ref: '#/components/schemas/UserRole'
 
     Operatory:
+      description: "Source: OperatoryResource"
       type: object
       properties:
         id:
@@ -4077,11 +4111,14 @@ components:
           type: string
         color:
           type: string
-          example: '#3B82F6'
           nullable: true
+          example: '#3B82F6'
         is_active:
           type: boolean
         created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
 
@@ -4101,13 +4138,14 @@ components:
           default: true
 
     AppointmentType:
+      description: "Source: AppointmentTypeResource. IMPORTANT: response field is default_duration_minutes not duration_minutes."
       type: object
       properties:
         id:
           type: integer
         name:
           type: string
-        duration_minutes:
+        default_duration_minutes:
           type: integer
           nullable: true
         color:
@@ -4118,6 +4156,9 @@ components:
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     StoreAppointmentTypeRequest:
       type: object
@@ -4126,7 +4167,7 @@ components:
         name:
           type: string
           maxLength: 100
-        duration_minutes:
+        default_duration_minutes:
           type: integer
           nullable: true
         color:
@@ -4138,6 +4179,7 @@ components:
           default: true
 
     ProcedureCode:
+      description: "Source: ProcedureCodeResource"
       type: object
       properties:
         id:
@@ -4148,9 +4190,13 @@ components:
           type: string
         fee_default:
           type: number
+          format: float
         is_active:
           type: boolean
         created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
 
@@ -4173,6 +4219,7 @@ components:
           default: true
 
     PaymentMethod:
+      description: "Source: PaymentMethodResource"
       type: object
       properties:
         id:
@@ -4197,6 +4244,7 @@ components:
           default: true
 
     Provider:
+      description: "Source: ProviderResource"
       type: object
       properties:
         id:
@@ -4230,6 +4278,19 @@ components:
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        user:
+          description: Included when the user relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
+        operatory:
+          description: Included when the operatory relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Operatory'
 
     StoreProviderRequest:
       type: object
@@ -4266,7 +4327,10 @@ components:
           type: boolean
           default: true
 
+    # ── Patient ───────────────────────────────────────────────────────────────
+
     Patient:
+      description: "Source: PatientResource"
       type: object
       properties:
         id:
@@ -4277,6 +4341,7 @@ components:
           type: string
         full_name:
           type: string
+          description: "Computed — trim(first_name + ' ' + last_name)"
         gender:
           type: string
           enum: [male, female, other]
@@ -4284,9 +4349,6 @@ components:
         date_of_birth:
           type: string
           format: date
-          nullable: true
-        age:
-          type: integer
           nullable: true
         phone:
           type: string
@@ -4313,7 +4375,11 @@ components:
           type: string
           format: date-time
           nullable: true
+          description: Non-null when the patient is soft-deleted (archived)
         created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
 
@@ -4362,6 +4428,7 @@ components:
           default: true
 
     PatientContact:
+      description: "Source: PatientContactResource"
       type: object
       properties:
         id:
@@ -4380,6 +4447,12 @@ components:
           nullable: true
         is_emergency:
           type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     StorePatientContactRequest:
       type: object
@@ -4404,6 +4477,7 @@ components:
           default: false
 
     PatientAllergy:
+      description: "Source: PatientAllergyResource"
       type: object
       properties:
         id:
@@ -4422,6 +4496,7 @@ components:
         noted_by:
           type: integer
           nullable: true
+          description: FK to providers.id
         noted_at:
           type: string
           format: date
@@ -4429,6 +4504,17 @@ components:
         notes:
           type: string
           nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        provider:
+          description: Provider who noted the allergy. Included when the notedBy relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
 
     StorePatientAllergyRequest:
       type: object
@@ -4457,6 +4543,7 @@ components:
           nullable: true
 
     PatientCondition:
+      description: "Source: PatientConditionResource"
       type: object
       properties:
         id:
@@ -4478,6 +4565,7 @@ components:
         noted_by:
           type: integer
           nullable: true
+          description: FK to providers.id
         noted_at:
           type: string
           format: date-time
@@ -4485,6 +4573,17 @@ components:
         notes:
           type: string
           nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        provider:
+          description: Provider who noted the condition. Included when the notedBy relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
 
     StorePatientConditionRequest:
       type: object
@@ -4517,6 +4616,7 @@ components:
           nullable: true
 
     PatientMedication:
+      description: "Source: PatientMedicationResource"
       type: object
       properties:
         id:
@@ -4542,9 +4642,21 @@ components:
         prescribed_by:
           type: integer
           nullable: true
+          description: FK to providers.id
         notes:
           type: string
           nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        provider:
+          description: Prescribing provider. Included when the prescribedBy relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
 
     StorePatientMedicationRequest:
       type: object
@@ -4577,6 +4689,7 @@ components:
           nullable: true
 
     PatientConsent:
+      description: "Source: PatientConsentResource"
       type: object
       properties:
         id:
@@ -4597,6 +4710,17 @@ components:
         file_path:
           type: string
           nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        witness_provider:
+          description: Witness provider. Included when the witnessProvider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
 
     StorePatientConsentRequest:
       type: object
@@ -4621,6 +4745,7 @@ components:
           nullable: true
 
     PatientMedicalCase:
+      description: "Source: PatientMedicalCaseResource"
       type: object
       properties:
         id:
@@ -4658,11 +4783,30 @@ components:
         notes:
           type: string
           nullable: true
+        created_by:
+          type: integer
+          nullable: true
+          description: FK to users.id
         documents_count:
           type: integer
+          nullable: true
+          description: Included when the documents count is loaded (whenCounted)
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        provider:
+          description: Treating provider. Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
+        creator:
+          description: User who created the case. Included when the creator relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
 
     StorePatientMedicalCaseRequest:
       type: object
@@ -4706,6 +4850,10 @@ components:
           nullable: true
 
     PatientMedicalDocument:
+      description: |
+        Source: PatientMedicalDocumentResource.
+        IMPORTANT: file_path is intentionally excluded from JSON responses.
+        To download the actual file use GET /patients/{patient}/documents/{document}/download.
       type: object
       properties:
         id:
@@ -4725,8 +4873,6 @@ components:
         description:
           type: string
           nullable: true
-        file_path:
-          type: string
         file_size_kb:
           type: integer
         mime_type:
@@ -4740,9 +4886,31 @@ components:
           nullable: true
         is_visible_to_patient:
           type: boolean
+        uploaded_by:
+          type: integer
+          nullable: true
+          description: FK to users.id
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        provider:
+          description: Associated provider. Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
+        uploader:
+          description: User who uploaded the file. Included when the uploader relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
+        medical_case:
+          description: Associated medical case. Included when the medicalCase relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PatientMedicalCase'
 
     StorePatientMedicalDocumentRequest:
       type: object
@@ -4751,7 +4919,7 @@ components:
         file:
           type: string
           format: binary
-          description: Max 20 MB. Accepted types&#58; jpg, jpeg, png, pdf, dcm, doc, docx
+          description: 'Max 20 MB. Accepted types: jpg, jpeg, png, pdf, dcm, doc, docx'
         document_type:
           $ref: '#/components/schemas/DocumentType'
         title:
@@ -4778,7 +4946,10 @@ components:
           type: boolean
           default: false
 
+    # ── Appointments ──────────────────────────────────────────────────────────
+
     Appointment:
+      description: "Source: AppointmentResource"
       type: object
       properties:
         id:
@@ -4818,9 +4989,41 @@ components:
           type: string
           format: date-time
           nullable: true
+        created_by:
+          type: integer
+          nullable: true
+          description: FK to users.id
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        patient:
+          description: Included when the patient relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Patient'
+        provider:
+          description: Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
+        appointment_type:
+          description: Included when the appointmentType relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/AppointmentType'
+        operatory:
+          description: Included when the operatory relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Operatory'
+        creator:
+          description: User who created the appointment. Included when the creator relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
 
     StoreAppointmentRequest:
       type: object
@@ -4842,7 +5045,7 @@ components:
         end_at:
           type: string
           format: date-time
-          description: Must be after start_at and on the same day
+          description: Must be after start_at and on the same calendar day
         status:
           $ref: '#/components/schemas/AppointmentStatus'
         chief_complaint:
@@ -4858,8 +5061,8 @@ components:
           nullable: true
 
     UpdateAppointmentRequest:
+      description: All fields optional. Providers may only send notes.
       type: object
-      description: All fields optional. Providers may only update `notes`.
       properties:
         patient_id:
           type: integer
@@ -4892,6 +5095,7 @@ components:
           nullable: true
 
     ScheduleBlock:
+      description: "Source: ScheduleBlockResource"
       type: object
       properties:
         id:
@@ -4911,9 +5115,31 @@ components:
         reason:
           type: string
           nullable: true
+        created_by:
+          type: integer
+          nullable: true
+          description: FK to users.id
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        provider:
+          description: Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
+        operatory:
+          description: Included when the operatory relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Operatory'
+        creator:
+          description: User who created the block. Included when the creator relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
 
     StoreScheduleBlockRequest:
       type: object
@@ -4936,7 +5162,10 @@ components:
           maxLength: 255
           nullable: true
 
+    # ── Recalls ───────────────────────────────────────────────────────────────
+
     Recall:
+      description: "Source: RecallResource"
       type: object
       properties:
         id:
@@ -4958,6 +5187,14 @@ components:
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        patient:
+          description: Included when the patient relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Patient'
 
     StoreRecallRequest:
       type: object
@@ -4975,12 +5212,16 @@ components:
           nullable: true
 
     CommunicationLog:
+      description: "Source: CommunicationLogResource"
       type: object
       properties:
         id:
           type: integer
         patient_id:
           type: integer
+        provider_id:
+          type: integer
+          nullable: true
         recall_id:
           type: integer
           nullable: true
@@ -4999,11 +5240,31 @@ components:
         status:
           type: string
           example: queued
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        patient:
+          description: Included when the patient relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Patient'
+        provider:
+          description: Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
+
+    # ── Billing ───────────────────────────────────────────────────────────────
 
     Invoice:
+      description: "Source: InvoiceResource"
       type: object
       properties:
         id:
@@ -5016,6 +5277,8 @@ components:
         provider_id:
           type: integer
           nullable: true
+        status:
+          $ref: '#/components/schemas/InvoiceStatus'
         issued_at:
           type: string
           format: date
@@ -5023,26 +5286,62 @@ components:
           type: string
           format: date
           nullable: true
-        status:
-          $ref: '#/components/schemas/InvoiceStatus'
         subtotal:
           type: number
+          format: float
         discount:
           type: number
+          format: float
         tax:
           type: number
+          format: float
         total:
           type: number
+          format: float
+        amount_paid:
+          type: number
+          format: float
+          nullable: true
+          description: Sum of all payments. Present when payment counts are loaded (whenCounted).
         notes:
           type: string
           nullable: true
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/InvoiceLineItem'
+        finalized_by:
+          type: integer
+          nullable: true
+          description: FK to users.id
+        voided_by:
+          type: integer
+          nullable: true
+          description: FK to users.id
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        patient:
+          description: Included when the patient relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Patient'
+        provider:
+          description: Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
+        items:
+          type: array
+          nullable: true
+          description: Included when the items relation is loaded.
+          items:
+            $ref: '#/components/schemas/InvoiceLineItem'
+        payments:
+          type: array
+          nullable: true
+          description: Included when the payments relation is loaded.
+          items:
+            $ref: '#/components/schemas/Payment'
 
     StoreInvoiceRequest:
       type: object
@@ -5101,29 +5400,7 @@ components:
           type: number
           minimum: 0
 
-    InvoiceLineItem:
-      type: object
-      properties:
-        id:
-          type: integer
-        invoice_id:
-          type: integer
-        description:
-          type: string
-        procedure_code_id:
-          type: integer
-          nullable: true
-        tooth_number:
-          type: string
-          nullable: true
-        qty:
-          type: integer
-        unit_price:
-          type: number
-        total:
-          type: number
-
-    StoreInvoiceItemRequest:
+    StoreInvoiceLineItemRequest:
       type: object
       required: [description, qty, unit_price]
       properties:
@@ -5144,18 +5421,59 @@ components:
           type: number
           minimum: 0
 
-    Payment:
+    InvoiceLineItem:
+      description: "Source: InvoiceItemResource"
       type: object
       properties:
         id:
           type: integer
         invoice_id:
           type: integer
+        procedure_code_id:
+          type: integer
+          nullable: true
+        description:
+          type: string
+        tooth_number:
+          type: string
+          nullable: true
+        qty:
+          type: integer
+        unit_price:
+          type: number
+          format: float
+        total:
+          type: number
+          format: float
+        created_at:
+          type: string
+          format: date-time
+        procedure_code:
+          description: Included when the procedureCode relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ProcedureCode'
+
+    Payment:
+      description: "Source: PaymentResource"
+      type: object
+      properties:
+        id:
+          type: integer
+        invoice_id:
+          type: integer
+        patient_id:
+          type: integer
         payment_method_id:
           type: integer
           nullable: true
+        recorded_by:
+          type: integer
+          nullable: true
+          description: FK to users.id — staff who recorded the payment
         amount:
           type: number
+          format: float
         paid_at:
           type: string
           format: date
@@ -5168,6 +5486,16 @@ components:
         created_at:
           type: string
           format: date-time
+        payment_method:
+          description: Included when the paymentMethod relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PaymentMethod'
+        recorder:
+          description: User who recorded the payment. Included when the recorder relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
 
     StorePaymentRequest:
       type: object
@@ -5193,6 +5521,7 @@ components:
           nullable: true
 
     PaymentPlan:
+      description: "Source: PaymentPlanResource"
       type: object
       properties:
         id:
@@ -5204,6 +5533,7 @@ components:
           nullable: true
         total_amount:
           type: number
+          format: float
         installments:
           type: integer
         start_date:
@@ -5217,6 +5547,52 @@ components:
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        patient:
+          description: Included when the patient relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Patient'
+        invoice:
+          description: Included when the invoice relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Invoice'
+        items:
+          type: array
+          nullable: true
+          description: Instalment schedule. Included when the items relation is loaded.
+          items:
+            $ref: '#/components/schemas/PaymentPlanItem'
+
+    PaymentPlanItem:
+      description: "Source: PaymentPlanItemResource — single instalment in a payment plan."
+      type: object
+      properties:
+        id:
+          type: integer
+        payment_plan_id:
+          type: integer
+        payment_id:
+          type: integer
+          nullable: true
+          description: FK to payments.id — set when this instalment is paid
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        amount:
+          type: number
+          format: float
+        paid_at:
+          type: string
+          format: date
+          nullable: true
+        is_paid:
+          type: boolean
+          description: "Computed — true when paid_at is not null"
 
     StorePaymentPlanRequest:
       type: object
@@ -5241,7 +5617,10 @@ components:
           type: string
           nullable: true
 
+    # ── Inventory ─────────────────────────────────────────────────────────────
+
     InventoryItem:
+      description: "Source: InventoryItemResource"
       type: object
       properties:
         id:
@@ -5263,15 +5642,25 @@ components:
           type: integer
         reorder_level:
           type: integer
+        is_low_stock:
+          type: boolean
+          description: "Computed — true when current_stock <= reorder_level"
         unit_cost:
           type: number
+          format: float
         is_active:
-          type: boolean
-        is_low_stock:
           type: boolean
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        supplier:
+          description: Included when the supplier relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Supplier'
 
     StoreInventoryItemRequest:
       type: object
@@ -5334,6 +5723,10 @@ components:
           nullable: true
 
     StockMovement:
+      description: |
+        Source: StockMovementResource.
+        IMPORTANT: performed_by is an embedded User object (whenLoaded), not a raw integer.
+        There is no performed_by_id field — only the relation.
       type: object
       properties:
         id:
@@ -5355,11 +5748,17 @@ components:
         performed_at:
           type: string
           format: date-time
+        created_at:
+          type: string
+          format: date-time
         performed_by:
-          type: integer
+          description: User who performed the movement. Included when the performedBy relation is loaded.
           nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
 
     Supplier:
+      description: "Source: SupplierResource"
       type: object
       properties:
         id:
@@ -5385,6 +5784,9 @@ components:
         is_active:
           type: boolean
         created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
 
@@ -5418,6 +5820,9 @@ components:
           default: true
 
     PurchaseOrder:
+      description: |
+        Source: PurchaseOrderResource.
+        IMPORTANT: received_at is format date (YYYY-MM-DD), not datetime.
       type: object
       properties:
         id:
@@ -5425,8 +5830,7 @@ components:
         supplier_id:
           type: integer
         status:
-          type: string
-          enum: [pending, received, cancelled]
+          $ref: '#/components/schemas/PurchaseOrderStatus'
         ordered_at:
           type: string
           format: date
@@ -5437,23 +5841,46 @@ components:
           nullable: true
         received_at:
           type: string
-          format: date-time
+          format: date
           nullable: true
+          description: Date-only (YYYY-MM-DD), not datetime
         notes:
           type: string
           nullable: true
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/PurchaseOrderLineItem'
+        created_by:
+          type: integer
+          nullable: true
+          description: FK to users.id
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        supplier:
+          description: Included when the supplier relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Supplier'
+        creator:
+          description: User who created the order. Included when the creator relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
+        items:
+          type: array
+          nullable: true
+          description: Included when the items relation is loaded.
+          items:
+            $ref: '#/components/schemas/PurchaseOrderLineItem'
 
     PurchaseOrderLineItem:
+      description: "Source: PurchaseOrderItemResource"
       type: object
       properties:
         id:
+          type: integer
+        purchase_order_id:
           type: integer
         inventory_item_id:
           type: integer
@@ -5464,6 +5891,12 @@ components:
           nullable: true
         unit_cost:
           type: number
+          format: float
+        inventory_item:
+          description: Included when the inventoryItem relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/InventoryItem'
 
     StorePurchaseOrderRequest:
       type: object
@@ -5498,18 +5931,21 @@ components:
                 type: number
                 minimum: 0
 
+    # ── Clinical ──────────────────────────────────────────────────────────────
+
     Encounter:
+      description: "Source: EncounterResource"
       type: object
       properties:
         id:
           type: integer
+        appointment_id:
+          type: integer
+          nullable: true
         patient_id:
           type: integer
         provider_id:
           type: integer
-        appointment_id:
-          type: integer
-          nullable: true
         encounter_date:
           type: string
           format: date
@@ -5531,9 +5967,31 @@ components:
           type: string
           format: date-time
           nullable: true
+        locked_by:
+          type: integer
+          nullable: true
+          description: FK to users.id
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        patient:
+          description: Included when the patient relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Patient'
+        provider:
+          description: Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
+        locked_by_user:
+          description: User who locked the encounter. Included when the lockedBy relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
 
     StoreEncounterRequest:
       type: object
@@ -5563,6 +6021,7 @@ components:
           nullable: true
 
     UpdateEncounterRequest:
+      description: All fields optional. Encounter must not be locked.
       type: object
       properties:
         encounter_date:
@@ -5582,15 +6041,16 @@ components:
           nullable: true
 
     OdontogramEntry:
+      description: "Source: OdontogramEntryResource. FDI tooth numbering system (11–85)."
       type: object
       properties:
         id:
           type: integer
-        patient_id:
-          type: integer
         encounter_id:
           type: integer
           nullable: true
+        patient_id:
+          type: integer
         provider_id:
           type: integer
           nullable: true
@@ -5615,6 +6075,17 @@ components:
         recorded_at:
           type: string
           format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        provider:
+          description: Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
 
     StoreOdontogramEntryRequest:
       type: object
@@ -5650,6 +6121,7 @@ components:
           nullable: true
 
     PerioExam:
+      description: "Source: PerioExamResource"
       type: object
       properties:
         id:
@@ -5666,15 +6138,33 @@ components:
           nullable: true
         measures_count:
           type: integer
-        measures:
-          type: array
-          items:
-            $ref: '#/components/schemas/PerioMeasure'
+          nullable: true
+          description: Included when the measures count is loaded (whenCounted)
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        patient:
+          description: Included when the patient relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Patient'
+        provider:
+          description: Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
+        measures:
+          type: array
+          nullable: true
+          description: Included when the measures relation is loaded.
+          items:
+            $ref: '#/components/schemas/PerioMeasure'
 
     PerioMeasure:
+      description: "Source: PerioMeasureResource — single site measurement within a perio exam."
       type: object
       properties:
         id:
@@ -5718,6 +6208,7 @@ components:
           nullable: true
         measures:
           type: array
+          description: Optional measurements to create inline with the exam
           items:
             $ref: '#/components/schemas/StorePerioMeasureRequest'
 
@@ -5759,6 +6250,7 @@ components:
           default: false
 
     TreatmentPlan:
+      description: "Source: TreatmentPlanResource"
       type: object
       properties:
         id:
@@ -5770,8 +6262,11 @@ components:
         title:
           type: string
         status:
-          type: string
-          enum: [draft, presented, accepted, rejected]
+          $ref: '#/components/schemas/TreatmentPlanStatus'
+        total_fee:
+          type: number
+          format: float
+          description: Computed sum of all item fees
         notes:
           type: string
           nullable: true
@@ -5787,15 +6282,40 @@ components:
           type: string
           format: date-time
           nullable: true
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/TreatmentPlanLineItem'
+        created_by:
+          type: integer
+          nullable: true
+          description: FK to users.id
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        patient:
+          description: Included when the patient relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Patient'
+        provider:
+          description: Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
+        creator:
+          description: User who created the plan. Included when the creator relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
+        items:
+          type: array
+          nullable: true
+          description: Included when the items relation is loaded.
+          items:
+            $ref: '#/components/schemas/TreatmentPlanLineItem'
 
     TreatmentPlanLineItem:
+      description: "Source: TreatmentPlanItemResource"
       type: object
       properties:
         id:
@@ -5815,11 +6335,18 @@ components:
           type: string
         fee:
           type: number
+          format: float
         sort_order:
           type: integer
+          nullable: true
         status:
           type: string
           nullable: true
+        procedure_code:
+          description: Included when the procedureCode relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ProcedureCode'
 
     StoreTreatmentPlanRequest:
       type: object
@@ -5837,6 +6364,7 @@ components:
           nullable: true
         items:
           type: array
+          description: Optional items to create inline with the plan
           items:
             type: object
             required: [description, fee]
@@ -5865,6 +6393,7 @@ components:
                 nullable: true
 
     Prescription:
+      description: "Source: PrescriptionResource"
       type: object
       properties:
         id:
@@ -5878,21 +6407,42 @@ components:
           nullable: true
         issued_at:
           type: string
-          format: date
+          format: date-time
+          nullable: true
         notes:
           type: string
           nullable: true
         is_printed:
           type: boolean
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/PrescriptionItem'
+        printed_at:
+          type: string
+          format: date-time
+          nullable: true
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        patient:
+          description: Included when the patient relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Patient'
+        provider:
+          description: Included when the provider relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Provider'
+        items:
+          type: array
+          nullable: true
+          description: Included when the items relation is loaded.
+          items:
+            $ref: '#/components/schemas/PrescriptionItem'
 
     PrescriptionItem:
+      description: "Source: PrescriptionItemResource"
       type: object
       properties:
         id:
@@ -5966,7 +6516,16 @@ components:
           items:
             $ref: '#/components/schemas/PrescriptionItemInput'
 
+    # ── AI Analysis ───────────────────────────────────────────────────────────
+
     AiResult:
+      description: |
+        Source: AiAnalysisResultResource.
+        The shape of the result object varies by analysis_type:
+          xray_analysis       — findings, regions_of_interest, confidence scores
+          soap_suggestion     — { subjective, objective, assessment, plan }
+          prescription_suggestion — { medications: [{ drug_name, dose, frequency, duration, instructions }] }
+          perio_risk          — { risk_level, risk_score, risk_factors[] }
       type: object
       properties:
         id:
@@ -5976,40 +6535,32 @@ components:
           nullable: true
         source_type:
           type: string
-          description: Morph type — e.g. document, encounter
+          description: "Morph type — e.g. document, encounter"
         source_id:
           type: integer
           nullable: true
         analysis_type:
           $ref: '#/components/schemas/AiAnalysisType'
-        status:
-          $ref: '#/components/schemas/AiResultStatus'
+        ai_provider:
+          type: string
+          nullable: true
+          description: "e.g. google"
+        ai_model:
+          type: string
+          nullable: true
+          description: "e.g. gemini-flash"
         input_summary:
           type: string
           nullable: true
         result:
           type: object
           nullable: true
-          description: AI-generated structured payload (varies by analysis_type)
+          description: Structured AI output — shape varies by analysis_type (see schema description above)
+        status:
+          $ref: '#/components/schemas/AiResultStatus'
         reviewer_notes:
           type: string
           nullable: true
-        requested_by:
-          type: object
-          nullable: true
-          properties:
-            id:
-              type: integer
-            name:
-              type: string
-        reviewed_by:
-          type: object
-          nullable: true
-          properties:
-            id:
-              type: integer
-            name:
-              type: string
         reviewed_at:
           type: string
           format: date-time
@@ -6017,8 +6568,22 @@ components:
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        requested_by:
+          description: User who triggered the analysis. Included when the requestedBy relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
+        reviewed_by:
+          description: User who accepted or dismissed the result. Included when the reviewedBy relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
 
     PatientAiInsights:
+      description: Aggregated latest AI result per analysis type for a patient.
       type: object
       properties:
         patient_id:
@@ -6052,7 +6617,36 @@ components:
               allOf:
                 - $ref: '#/components/schemas/AiResult'
 
+    CreatePrescriptionFromAiResponse:
+      description: Response from POST /ai-results/{result}/create-prescription
+      type: object
+      properties:
+        message:
+          type: string
+          example: Prescription created successfully.
+        prescription:
+          type: object
+          properties:
+            id:
+              type: integer
+            issued_at:
+              type: string
+              format: date-time
+            items_count:
+              type: integer
+        ai_result:
+          $ref: '#/components/schemas/AiResult'
+
+    # ── Audit Logs ────────────────────────────────────────────────────────────
+
     AuditLog:
+      description: |
+        Source: AuditLogResource.
+        IMPORTANT FIELD NAME CORRECTIONS vs v1:
+          action     (not event)
+          model_type (not auditable_type)
+          model_id   (not auditable_id)
+        model_type is the short class basename e.g. Patient, Invoice — not the full namespace.
       type: object
       properties:
         id:
@@ -6060,22 +6654,21 @@ components:
         user_id:
           type: integer
           nullable: true
-        user_name:
+        action:
+          $ref: '#/components/schemas/AuditAction'
+        model_type:
           type: string
-          nullable: true
-        event:
-          type: string
-          enum: [created, updated, deleted, restored]
-        auditable_type:
-          type: string
-        auditable_id:
+          description: Short class basename e.g. Patient, Invoice, Encounter
+        model_id:
           type: integer
         old_values:
           type: object
           nullable: true
+          description: Previous attribute values — null for created events
         new_values:
           type: object
           nullable: true
+          description: New attribute values — null for deleted events
         ip_address:
           type: string
           nullable: true
@@ -6085,8 +6678,16 @@ components:
         created_at:
           type: string
           format: date-time
+        user:
+          description: User who triggered the action. Included when the user relation is loaded.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/User'
+
+    # ── Composite / special responses ─────────────────────────────────────────
 
     TimelineResponse:
+      description: Unified patient timeline paginated response.
       type: object
       properties:
         data:
@@ -6102,7 +6703,7 @@ components:
                 format: date-time
               data:
                 type: object
-                description: Full resource payload for the event type
+                description: Full resource payload for the event type (matches the corresponding schema above)
         meta:
           type: object
           properties:
@@ -6120,6 +6721,7 @@ components:
                 type: string
 
     LedgerResponse:
+      description: Patient billing ledger with totals.
       type: object
       properties:
         data:
@@ -6131,10 +6733,13 @@ components:
           properties:
             total_billed:
               type: number
+              format: float
             total_paid:
               type: number
+              format: float
             outstanding:
               type: number
+              format: float
         meta:
           type: object
           properties:
