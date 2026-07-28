@@ -21,25 +21,10 @@ use Illuminate\View\View;
  * Web\AiAssistantController
  *
  * Mirrors every action in Api\AiAnalysisController but returns
- * Blade views / redirects instead of JSON responses.
+ * Blade views / redirects instead of JSON.
  *
- * The API controller is NEVER touched — this controller calls
- * the same Services and Models directly.
- *
- * Routes (routes/web.php):
- *   GET    /dashboard/ai                                            → index
- *   GET    /dashboard/ai/{result}                                   → show (HTMX swap)
- *   PATCH  /dashboard/ai/{result}/accept                            → accept
- *   PATCH  /dashboard/ai/{result}/dismiss                           → dismiss
- *   POST   /dashboard/ai/{result}/apply-soap                        → applySoap
- *   POST   /dashboard/ai/{result}/create-prescription               → createPrescription
- *   POST   /dashboard/patients/{patient}/documents/{document}/analyze → analyzeDocument
- *   POST   /dashboard/encounters/{encounter}/suggest-soap            → suggestSoap
- *   POST   /dashboard/patients/{patient}/prescription-suggestions    → suggestPrescription
- *   POST   /dashboard/perio-exams/{perioExam}/risk-score             → scorePerioRisk
- *   GET    /dashboard/patients/{patient}/ai-insights                 → patientInsights
- *   GET    /dashboard/patients/{patient}/ai-results                  → patientResults
- *   POST   /dashboard/ai/recalls/prioritize                         → prioritiseRecalls
+ * The Api\ controller is NEVER imported or called here.
+ * Both controllers share the same Models and Services directly.
  */
 class AiAssistantController extends Controller
 {
@@ -48,7 +33,10 @@ class AiAssistantController extends Controller
         private readonly FileStorageService $fileStorageService,
     ) {}
 
-    /* ── Type filter map (URL param → DB column value) ─────── */
+    /**
+     * Map URL filter key → DB analysis_type column value.
+     * Must match AiAnalysisResult::TYPE_* constants.
+     */
     private const TYPE_MAP = [
         'xray'         => AiAnalysisResult::TYPE_XRAY_ANALYSIS,
         'soap'         => AiAnalysisResult::TYPE_SOAP_SUGGESTION,
@@ -56,13 +44,10 @@ class AiAssistantController extends Controller
         'perio'        => AiAnalysisResult::TYPE_PERIO_RISK,
     ];
 
-    /* ════════════════════════════════════════════════════════════
+    /* ════════════════════════════════════════════════════
      * LISTING & DISPLAY
-     * ════════════════════════════════════════════════════════════ */
+     * ════════════════════════════════════════════════════ */
 
-    /**
-     * Main AI assistant page — lists all results with filters.
-     */
     public function index(Request $request): View
     {
         $this->authorize('viewAny', AiAnalysisResult::class);
@@ -70,7 +55,7 @@ class AiAssistantController extends Controller
         $type   = $request->query('type', 'all');
         $status = $request->query('status', 'all');
 
-        $query = AiAnalysisResult::with(['requestedBy', 'reviewedBy', 'patient'])
+        $query = AiAnalysisResult::with(['patient', 'requestedBy', 'reviewedBy'])
             ->latest();
 
         if ($type !== 'all' && isset(self::TYPE_MAP[$type])) {
@@ -91,33 +76,30 @@ class AiAssistantController extends Controller
             'perio'        => AiAnalysisResult::where('analysis_type', AiAnalysisResult::TYPE_PERIO_RISK)->count(),
         ];
 
-        $selected = $results->first()?->load(['requestedBy', 'reviewedBy', 'patient']);
+        $selected = $results->first()?->load(['patient', 'requestedBy', 'reviewedBy']);
 
-        return view('web.ai.index', compact('results', 'activeType', 'activeStatus', 'selected', 'counts') + [
+        return view('web.ai.index', [
+            'results'      => $results,
             'activeType'   => $type,
             'activeStatus' => $status,
+            'selected'     => $selected,
+            'counts'       => $counts,
         ]);
     }
 
-    /**
-     * Detail panel — returned as partial for HTMX, redirect otherwise.
-     */
-    public function show(AiAnalysisResult $result): mixed
+    public function show(Request $request, AiAnalysisResult $result): mixed
     {
         $this->authorize('view', $result);
 
-        $result->load(['requestedBy', 'reviewedBy', 'patient']);
+        $result->load(['patient', 'requestedBy', 'reviewedBy']);
 
-        if (request()->header('HX-Request')) {
+        if ($request->header('HX-Request')) {
             return view('web.ai._detail', compact('result'));
         }
 
-        return redirect()->route('web.ai', ['selected' => $result->id]);
+        return redirect()->route('web.ai');
     }
 
-    /**
-     * Per-patient AI results list (used by patient profile page).
-     */
     public function patientResults(Request $request, Patient $patient): View
     {
         $this->authorize('viewAny', AiAnalysisResult::class);
@@ -134,9 +116,6 @@ class AiAssistantController extends Controller
         return view('web.ai.patient-results', compact('patient', 'results'));
     }
 
-    /**
-     * Aggregate AI insights per patient (used by patient profile sidebar).
-     */
     public function patientInsights(Patient $patient): View
     {
         $this->authorize('viewAny', AiAnalysisResult::class);
@@ -165,14 +144,11 @@ class AiAssistantController extends Controller
         return view('web.ai.patient-insights', compact('patient', 'insights', 'riskLevel', 'riskScore'));
     }
 
-    /* ════════════════════════════════════════════════════════════
-     * TRIGGER ACTIONS (generate new AI results)
-     * ════════════════════════════════════════════════════════════ */
+    /* ════════════════════════════════════════════════════
+     * TRIGGER — generate new AI results
+     * Mirrors Api\AiAnalysisController trigger methods.
+     * ════════════════════════════════════════════════════ */
 
-    /**
-     * Trigger X-ray / image analysis on a patient document.
-     * Mirrors: Api\AiAnalysisController@analyzeDocument
-     */
     public function analyzeDocument(Request $request, Patient $patient, PatientMedicalDocument $document): mixed
     {
         $this->authorize('create', AiAnalysisResult::class);
@@ -192,7 +168,6 @@ class AiAssistantController extends Controller
             'The document file could not be found on disk.'
         );
 
-        // Return existing pending result instead of creating a duplicate
         $existing = AiAnalysisResult::query()
             ->where('source_type', 'document')
             ->where('source_id', $document->id)
@@ -200,18 +175,14 @@ class AiAssistantController extends Controller
             ->first();
 
         if ($existing) {
-            return $this->redirectToResult($existing, 'Analysis already in progress.');
+            return $this->toResult($request, $existing, 'Analysis already in progress.');
         }
 
         $result = $this->aiService->analyseImage($document, $request->user(), $document->file_path);
 
-        return $this->redirectToResult($result, 'X-ray analysis started.');
+        return $this->toResult($request, $result, 'X-ray analysis started.');
     }
 
-    /**
-     * Trigger SOAP note suggestion for an encounter.
-     * Mirrors: Api\AiAnalysisController@suggestSoap
-     */
     public function suggestSoap(Request $request, Encounter $encounter): mixed
     {
         $this->authorize('create', AiAnalysisResult::class);
@@ -226,18 +197,14 @@ class AiAssistantController extends Controller
             ->first();
 
         if ($existing) {
-            return $this->redirectToResult($existing, 'SOAP suggestion already pending.');
+            return $this->toResult($request, $existing, 'SOAP suggestion already pending.');
         }
 
         $result = $this->aiService->suggestSoap($encounter, $request->user());
 
-        return $this->redirectToResult($result, 'SOAP suggestion generated.');
+        return $this->toResult($request, $result, 'SOAP suggestion generated.');
     }
 
-    /**
-     * Trigger prescription suggestion for a patient.
-     * Mirrors: Api\AiAnalysisController@suggestPrescription
-     */
     public function suggestPrescription(Request $request, Patient $patient): mixed
     {
         $this->authorize('create', AiAnalysisResult::class);
@@ -258,23 +225,16 @@ class AiAssistantController extends Controller
             ->first();
 
         if ($existing) {
-            return $this->redirectToResult($existing, 'Prescription suggestion already pending.');
+            return $this->toResult($request, $existing, 'Prescription suggestion already pending.');
         }
 
         $result = $this->aiService->suggestPrescription(
-            $patient,
-            $diagnosis,
-            $request->user(),
-            $encounterId,
+            $patient, $diagnosis, $request->user(), $encounterId
         );
 
-        return $this->redirectToResult($result, 'Prescription suggestion generated.');
+        return $this->toResult($request, $result, 'Prescription suggestion generated.');
     }
 
-    /**
-     * Trigger perio risk scoring for a perio exam.
-     * Mirrors: Api\AiAnalysisController@scorePerioRisk
-     */
     public function scorePerioRisk(Request $request, PerioExam $perioExam): mixed
     {
         $this->authorize('create', AiAnalysisResult::class);
@@ -293,18 +253,14 @@ class AiAssistantController extends Controller
             ->first();
 
         if ($existing) {
-            return $this->redirectToResult($existing, 'Perio risk score already pending.');
+            return $this->toResult($request, $existing, 'Perio risk score already pending.');
         }
 
         $result = $this->aiService->scorePerioRisk($perioExam, $request->user());
 
-        return $this->redirectToResult($result, 'Perio risk score generated.');
+        return $this->toResult($request, $result, 'Perio risk score generated.');
     }
 
-    /**
-     * Trigger AI recall prioritisation.
-     * Mirrors: Api\AiAnalysisController@prioritiseRecalls
-     */
     public function prioritiseRecalls(Request $request): mixed
     {
         $this->authorize('create', AiAnalysisResult::class);
@@ -325,26 +281,20 @@ class AiAssistantController extends Controller
 
         $result = $this->aiService->prioritiseRecalls($recalls, $request->user());
 
-        return $this->redirectToResult($result, 'Recall prioritisation complete.');
+        return $this->toResult($request, $result, 'Recall prioritisation complete.');
     }
 
-    /* ════════════════════════════════════════════════════════════
-     * REVIEW ACTIONS (accept / dismiss / apply)
-     * ════════════════════════════════════════════════════════════ */
+    /* ════════════════════════════════════════════════════
+     * REVIEW — accept / apply / dismiss
+     * ════════════════════════════════════════════════════ */
 
-    /**
-     * Accept a result (generic — no encounter write-back).
-     * Mirrors: Api\AiAnalysisController@accept
-     */
     public function accept(Request $request, AiAnalysisResult $result): mixed
     {
         $this->authorize('review', $result);
 
         abort_if($result->status !== AiAnalysisResult::STATUS_PENDING, 422, 'Only pending results can be accepted.');
 
-        $request->validate([
-            'reviewer_notes' => ['nullable', 'string'],
-        ]);
+        $request->validate(['reviewer_notes' => ['nullable', 'string']]);
 
         $result->update([
             'status'         => AiAnalysisResult::STATUS_ACCEPTED,
@@ -353,18 +303,14 @@ class AiAssistantController extends Controller
             'reviewer_notes' => $request->input('reviewer_notes'),
         ]);
 
-        return $this->panelOrRedirect($request, $result, 'Result accepted.');
+        return $this->panelOrBack($request, $result->refresh(), 'Result accepted.');
     }
 
-    /**
-     * Apply a SOAP suggestion — writes fields back to the encounter.
-     * Mirrors: Api\AiAnalysisController@applySoap
-     */
     public function applySoap(Request $request, AiAnalysisResult $result): mixed
     {
         $this->authorize('review', $result);
 
-        abort_if($result->analysis_type !== AiAnalysisResult::TYPE_SOAP_SUGGESTION, 422, 'This action is only valid for SOAP suggestions.');
+        abort_if($result->analysis_type !== AiAnalysisResult::TYPE_SOAP_SUGGESTION, 422, 'Only SOAP suggestions can be applied.');
         abort_if($result->status !== AiAnalysisResult::STATUS_PENDING, 422, 'Only pending suggestions can be applied.');
 
         $request->validate([
@@ -378,13 +324,13 @@ class AiAssistantController extends Controller
         $encounter = Encounter::findOrFail($result->source_id);
         abort_if($encounter->is_locked, 422, 'Cannot apply suggestion to a locked encounter.');
 
-        $aiResult = $result->result;
+        $ai = $result->result;
 
         $encounter->update([
-            'subjective' => $request->input('subjective', $aiResult['subjective'] ?? $encounter->subjective),
-            'objective'  => $request->input('objective',  $aiResult['objective']  ?? $encounter->objective),
-            'assessment' => $request->input('assessment', $aiResult['assessment'] ?? $encounter->assessment),
-            'plan'       => $request->input('plan',       $aiResult['plan']       ?? $encounter->plan),
+            'subjective' => $request->input('subjective', $ai['subjective'] ?? $ai['S'] ?? $encounter->subjective),
+            'objective'  => $request->input('objective',  $ai['objective']  ?? $ai['O'] ?? $encounter->objective),
+            'assessment' => $request->input('assessment', $ai['assessment'] ?? $ai['A'] ?? $encounter->assessment),
+            'plan'       => $request->input('plan',       $ai['plan']       ?? $ai['P'] ?? $encounter->plan),
         ]);
 
         $result->update([
@@ -394,19 +340,15 @@ class AiAssistantController extends Controller
             'reviewer_notes' => $request->input('reviewer_notes'),
         ]);
 
-        return $this->panelOrRedirect($request, $result->refresh(), 'SOAP applied to encounter.');
+        return $this->panelOrBack($request, $result->refresh(), 'SOAP applied to encounter.');
     }
 
-    /**
-     * Accept a prescription suggestion and create a real prescription record.
-     * Mirrors: Api\AiAnalysisController@createPrescription
-     */
     public function createPrescription(Request $request, AiAnalysisResult $result): mixed
     {
         $this->authorize('review', $result);
 
-        abort_if($result->analysis_type !== AiAnalysisResult::TYPE_PRESCRIPTION_SUGGESTION, 422, 'This action is only valid for prescription suggestions.');
-        abort_if($result->status !== AiAnalysisResult::STATUS_PENDING, 422, 'Only pending suggestions can be used to create a prescription.');
+        abort_if($result->analysis_type !== AiAnalysisResult::TYPE_PRESCRIPTION_SUGGESTION, 422, 'Only prescription suggestions can create a prescription.');
+        abort_if($result->status !== AiAnalysisResult::STATUS_PENDING, 422, 'Only pending suggestions can be used.');
 
         $request->validate([
             'encounter_id'         => ['nullable', 'integer', 'exists:encounters,id'],
@@ -453,22 +395,16 @@ class AiAssistantController extends Controller
             ]);
         });
 
-        return $this->panelOrRedirect($request, $result->refresh(), 'Prescription created successfully.');
+        return $this->panelOrBack($request, $result->refresh(), 'Prescription created successfully.');
     }
 
-    /**
-     * Dismiss a result.
-     * Mirrors: Api\AiAnalysisController@dismiss
-     */
     public function dismiss(Request $request, AiAnalysisResult $result): mixed
     {
         $this->authorize('review', $result);
 
         abort_if($result->status !== AiAnalysisResult::STATUS_PENDING, 422, 'Only pending results can be dismissed.');
 
-        $request->validate([
-            'reviewer_notes' => ['nullable', 'string'],
-        ]);
+        $request->validate(['reviewer_notes' => ['nullable', 'string']]);
 
         $result->update([
             'status'         => AiAnalysisResult::STATUS_DISMISSED,
@@ -477,36 +413,29 @@ class AiAssistantController extends Controller
             'reviewer_notes' => $request->input('reviewer_notes'),
         ]);
 
-        return $this->panelOrRedirect($request, $result, 'Result dismissed.');
+        return $this->panelOrBack($request, $result->refresh(), 'Result dismissed.');
     }
 
-    /* ════════════════════════════════════════════════════════════
-     * PRIVATE HELPERS
-     * ════════════════════════════════════════════════════════════ */
+    /* ════════════════════════════════════════════════════
+     * HELPERS
+     * ════════════════════════════════════════════════════ */
 
-    /**
-     * After a trigger action: if HTMX request return the panel partial,
-     * otherwise redirect to the AI listing with the new result selected.
-     */
-    private function redirectToResult(AiAnalysisResult $result, string $message): mixed
+    /** After a trigger: return detail panel partial (HTMX) or redirect to listing. */
+    private function toResult(Request $request, AiAnalysisResult $result, string $message): mixed
     {
-        $result->load(['requestedBy', 'reviewedBy', 'patient']);
+        $result->load(['patient', 'requestedBy', 'reviewedBy']);
 
-        if (request()->header('HX-Request')) {
+        if ($request->header('HX-Request')) {
             return view('web.ai._detail', compact('result'));
         }
 
-        return redirect()
-            ->route('web.ai', ['selected' => $result->id])
-            ->with('success', $message);
+        return redirect()->route('web.ai')->with('success', $message);
     }
 
-    /**
-     * After a review action: swap detail panel for HTMX, or redirect back.
-     */
-    private function panelOrRedirect(Request $request, AiAnalysisResult $result, string $message): mixed
+    /** After a review: return detail panel partial (HTMX) or redirect back. */
+    private function panelOrBack(Request $request, AiAnalysisResult $result, string $message): mixed
     {
-        $result->load(['requestedBy', 'reviewedBy', 'patient']);
+        $result->load(['patient', 'requestedBy', 'reviewedBy']);
 
         if ($request->header('HX-Request')) {
             return view('web.ai._detail', compact('result'));
