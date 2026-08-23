@@ -125,8 +125,9 @@ class AiService
                     ],
                 ],
                 'generationConfig' => [
-                    'temperature'     => 0.2,
-                    'maxOutputTokens' => 1024,
+                    'temperature'      => 0.2,
+                    'maxOutputTokens'  => 8192,
+                    'responseMimeType' => 'application/json',
                 ],
             ]);
 
@@ -150,8 +151,9 @@ class AiService
                     ],
                 ],
                 'generationConfig' => [
-                    'temperature'     => 0.3,
-                    'maxOutputTokens' => 1500,
+                    'temperature'      => 0.3,
+                    'maxOutputTokens'  => 8192,
+                    'responseMimeType' => 'application/json',
                 ],
             ]);
 
@@ -169,7 +171,7 @@ class AiService
             throw new \RuntimeException('AI request failed: '.$response->body());
         }
 
-        $text = $response->json('candidates.0.content.parts.0.text', '');
+        $text = $this->extractResponseText($response);
 
         return $this->parseStructuredResponse($text);
     }
@@ -513,6 +515,20 @@ PROMPT;
     }
 
     // ── Response parser ───────────────────────────────────────────────────────
+
+    private function extractResponseText(\Illuminate\Http\Client\Response $response): string
+    {
+        $parts = $response->json('candidates.0.content.parts', []);
+        $text  = '';
+
+        foreach ($parts as $part) {
+            if (isset($part['text']) && is_string($part['text'])) {
+                $text .= $part['text'];
+            }
+        }
+
+        return $text;
+    }
 
     private function parseStructuredResponse(string $text): array
     {

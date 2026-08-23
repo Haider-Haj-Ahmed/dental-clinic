@@ -14,13 +14,37 @@
     $tc = $typeMap[$result->analysis_type] ?? ['border'=>'rgba(255,255,255,.1)','bg'=>'rgba(255,255,255,.05)','color'=>'#8e9196','icon'=>'ti-sparkles','label'=>'AI Result'];
 
     $data        = is_array($result->result) ? $result->result : [];
-    $soap        = $data['soap'] ?? null;
-    $findings    = $data['findings'] ?? null;
-    $drugs       = $data['drug_interactions'] ?? $data['interactions'] ?? [];
-    $nuances     = $data['clinical_nuances'] ?? $data['nuances'] ?? null;
-    $tags        = $data['tags'] ?? [];
-    $riskLevel   = $data['risk_level'] ?? null;
-    $riskScore   = $data['risk_score'] ?? null;
+    $parseError  = ! empty($data['parse_error']);
+
+    // SOAP — flat keys from AiService, or legacy nested soap object
+    $soap = $data['soap'] ?? null;
+    if (! $soap && ($data['subjective'] ?? $data['objective'] ?? $data['assessment'] ?? $data['plan'] ?? null)) {
+        $soap = [
+            'S' => $data['subjective'] ?? '',
+            'O' => $data['objective'] ?? '',
+            'A' => $data['assessment'] ?? '',
+            'P' => $data['plan'] ?? '',
+        ];
+    }
+
+    $drugs           = $data['drug_interaction_flags'] ?? $data['drug_interactions'] ?? $data['interactions'] ?? [];
+    $nuances         = $data['clinical_notes'] ?? $data['clinical_nuances'] ?? $data['nuances'] ?? null;
+    $tags            = $data['tags'] ?? [];
+    $riskLevel       = $data['risk_level'] ?? null;
+    $riskScore       = $data['risk_score'] ?? null;
+    $findings        = $data['findings'] ?? null;
+    $overall         = $data['overall_assessment'] ?? null;
+    $imageQuality    = $data['image_quality'] ?? null;
+    $recommendations = $data['recommendations'] ?? [];
+    $rxItems         = $data['suggested_items'] ?? [];
+    $rxWarnings      = $data['interaction_warnings'] ?? [];
+    $contraindications = $data['contraindications'] ?? [];
+    $generalNotes    = $data['general_notes'] ?? null;
+    $contributing    = $data['contributing_factors'] ?? [];
+    $teethOfConcern  = $data['teeth_of_concern'] ?? [];
+    $treatmentRecs   = $data['treatment_recommendations'] ?? [];
+    $prognosis       = $data['prognosis'] ?? null;
+    $disclaimer      = $data['disclaimer'] ?? null;
 
     $patientName = $result->patient
         ? $result->patient->first_name.' '.$result->patient->last_name
@@ -32,6 +56,9 @@
     $isDismissed = $result->status === 'dismissed';
     $isSOAP      = $result->analysis_type === 'soap_suggestion';
     $isRx        = $result->analysis_type === 'prescription_suggestion';
+    $isXray      = $result->analysis_type === 'xray_analysis';
+    $isPerio     = $result->analysis_type === 'perio_risk';
+    $hasContent  = $soap || $findings || $nuances || $riskLevel || $overall || ! empty($rxItems) || ! empty($contributing) || ! empty($teethOfConcern);
 @endphp
 
 {{-- Header --}}
@@ -53,17 +80,35 @@
 {{-- Body --}}
 <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;">
 
+    {{-- Parse error --}}
+    @if($parseError)
+        <div style="background:rgba(255,180,171,.07);border:1px solid rgba(147,0,10,.45);border-radius:12px;padding:14px;" class="reveal reveal-1">
+            <div style="font-size:10px;font-weight:800;color:#ffb4ab;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:5px;">
+                <i class="ti ti-alert-triangle" style="font-size:13px;"></i> Response could not be parsed
+            </div>
+            <div style="font-size:12px;color:#fca5a5;line-height:1.55;">The AI response was incomplete or malformed. Try generating again.</div>
+            @if(!empty($data['raw_response']))
+                <pre style="margin-top:10px;font-size:10px;color:#8e9196;white-space:pre-wrap;word-break:break-word;max-height:120px;overflow:auto;">{{ $data['raw_response'] }}</pre>
+            @endif
+        </div>
+    @endif
+
     {{-- Drug interaction alert --}}
     @if(!empty($drugs))
         <div style="background:rgba(255,180,171,.07);border:1px solid rgba(147,0,10,.45);border-radius:12px;padding:14px;" class="reveal reveal-1">
             <div style="font-size:10px;font-weight:800;color:#ffb4ab;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:5px;">
-                <i class="ti ti-alert-triangle" style="font-size:13px;"></i> Critical Drug Interaction
+                <i class="ti ti-alert-triangle" style="font-size:13px;"></i> Drug Interaction Flags
             </div>
             @foreach($drugs as $flag)
                 <div style="display:flex;align-items:flex-start;gap:9px;{{ !$loop->first ? 'margin-top:8px;':'' }}">
                     <i class="ti ti-alert-triangle" style="font-size:14px;color:#ffb4ab;margin-top:1px;flex-shrink:0;"></i>
                     <div style="flex:1;font-size:12px;color:#fca5a5;line-height:1.55;">
-                        {{ is_array($flag) ? ($flag['message'] ?? json_encode($flag)) : $flag }}
+                        @if(is_array($flag))
+                            {{ $flag['flag'] ?? $flag['warning'] ?? $flag['message'] ?? json_encode($flag) }}
+                            @if(!empty($flag['drug']))<span style="color:#8e9196;"> — {{ $flag['drug'] }}</span>@endif
+                        @else
+                            {{ $flag }}
+                        @endif
                     </div>
                     @if(is_array($flag) && !empty($flag['severity']))
                         <span style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;background:#93000a;color:#fff;text-transform:uppercase;flex-shrink:0;">{{ $flag['severity'] }}</span>
@@ -77,14 +122,68 @@
     @if($riskLevel || $riskScore)
         <div style="background:rgba(255,180,171,.05);border:1px solid rgba(255,180,171,.15);border-radius:12px;padding:14px;" class="reveal reveal-1">
             <div style="font-size:10px;font-weight:700;color:#8e9196;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:var(--font-mono);">Perio Risk Score</div>
-            <div style="display:flex;align-items:center;gap:12px;">
-                @if($riskScore)
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                @if($riskScore !== null && $riskScore !== '')
                     <div style="font-size:28px;font-weight:800;color:#ffb4ab;">{{ $riskScore }}</div>
                 @endif
                 @if($riskLevel)
                     <span style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:700;background:rgba(255,180,171,.12);color:#ffb4ab;border:1px solid rgba(255,180,171,.25);">{{ strtoupper($riskLevel) }}</span>
                 @endif
+                @if($prognosis)
+                    <span style="font-size:11px;color:#8e9196;">Prognosis: {{ ucfirst($prognosis) }}</span>
+                @endif
             </div>
+        </div>
+    @endif
+
+    {{-- Prescription suggestions --}}
+    @if(!empty($rxItems))
+        <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px;" class="reveal reveal-2">
+            <div style="font-size:10px;font-weight:700;color:#8e9196;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;font-family:var(--font-mono);">Suggested Items</div>
+            @foreach($rxItems as $item)
+                <div style="padding:10px 0;{{ !$loop->last ? 'border-bottom:1px solid rgba(255,255,255,.04);':'' }}">
+                    <div style="font-size:13px;font-weight:700;color:#e2e3df;">{{ $item['drug_name'] ?? 'Unknown' }}</div>
+                    <div style="font-size:12px;color:#8e9196;line-height:1.6;margin-top:4px;">
+                        @if(!empty($item['dose'])){{ $item['dose'] }} · @endif
+                        @if(!empty($item['frequency'])){{ $item['frequency'] }} · @endif
+                        @if(!empty($item['duration'])){{ $item['duration'] }}@endif
+                    </div>
+                    @if(!empty($item['instructions']))
+                        <div style="font-size:11px;color:#c4c6cc;margin-top:4px;">{{ $item['instructions'] }}</div>
+                    @endif
+                    @if(!empty($item['indication']))
+                        <div style="font-size:11px;color:#666;margin-top:4px;">{{ $item['indication'] }}</div>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @endif
+
+    @if(!empty($rxWarnings) || !empty($contraindications))
+        <div style="background:rgba(255,180,171,.05);border:1px solid rgba(255,180,171,.15);border-radius:12px;padding:14px;" class="reveal reveal-2">
+            @if(!empty($rxWarnings))
+                <div style="font-size:10px;font-weight:700;color:#ffb4ab;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Interaction Warnings</div>
+                @foreach($rxWarnings as $warning)
+                    <div style="font-size:12px;color:#fca5a5;line-height:1.55;{{ !$loop->last ? 'margin-bottom:6px;':'' }}">
+                        {{ is_array($warning) ? ($warning['warning'] ?? json_encode($warning)) : $warning }}
+                    </div>
+                @endforeach
+            @endif
+            @if(!empty($contraindications))
+                <div style="font-size:10px;font-weight:700;color:#ffb4ab;text-transform:uppercase;letter-spacing:.06em;margin:{{ !empty($rxWarnings) ? '12px' : '0' }} 0 8px;">Contraindications</div>
+                @foreach($contraindications as $contra)
+                    <div style="font-size:12px;color:#fca5a5;line-height:1.55;{{ !$loop->last ? 'margin-bottom:6px;':'' }}">
+                        {{ is_array($contra) ? ($contra['reason'] ?? json_encode($contra)) : $contra }}
+                    </div>
+                @endforeach
+            @endif
+        </div>
+    @endif
+
+    @if($generalNotes)
+        <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px;" class="reveal reveal-3">
+            <div style="font-size:10px;font-weight:700;color:#8e9196;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:var(--font-mono);">Clinical Notes</div>
+            <div style="font-size:12px;color:#c4c6cc;line-height:1.6;">{{ $generalNotes }}</div>
         </div>
     @endif
 
@@ -104,10 +203,67 @@
     @endif
 
     {{-- Findings (X-ray) --}}
-    @if($findings)
+    @if($imageQuality || $overall)
+        <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px;" class="reveal reveal-2">
+            @if($imageQuality)
+                <div style="font-size:10px;font-weight:700;color:#8e9196;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-family:var(--font-mono);">Image Quality: {{ ucfirst($imageQuality) }}</div>
+            @endif
+            @if($overall)
+                <div style="font-size:12px;color:#c4c6cc;line-height:1.6;">{{ $overall }}</div>
+            @endif
+        </div>
+    @endif
+
+    @if(!empty($findings))
         <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px;" class="reveal reveal-2">
             <div style="font-size:10px;font-weight:700;color:#8e9196;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:var(--font-mono);">Findings</div>
-            <div style="font-size:12px;color:#c4c6cc;line-height:1.6;">{{ is_array($findings) ? implode('. ', $findings) : $findings }}</div>
+            @foreach($findings as $finding)
+                <div style="font-size:12px;color:#c4c6cc;line-height:1.6;padding:8px 0;{{ !$loop->last ? 'border-bottom:1px solid rgba(255,255,255,.04);':'' }}">
+                    @if(is_array($finding))
+                        @if(!empty($finding['tooth_number']))<strong>Tooth {{ $finding['tooth_number'] }}:</strong> @endif
+                        {{ $finding['observation'] ?? json_encode($finding) }}
+                        @if(!empty($finding['confidence']))<span style="color:#666;"> ({{ $finding['confidence'] }})</span>@endif
+                    @else
+                        {{ $finding }}
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @endif
+
+    @if(!empty($recommendations))
+        <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px;" class="reveal reveal-3">
+            <div style="font-size:10px;font-weight:700;color:#8e9196;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:var(--font-mono);">Recommendations</div>
+            @foreach($recommendations as $rec)
+                <div style="font-size:12px;color:#c4c6cc;line-height:1.6;">• {{ $rec }}</div>
+            @endforeach
+        </div>
+    @endif
+
+    @if(!empty($contributing) || !empty($teethOfConcern) || !empty($treatmentRecs))
+        <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px;" class="reveal reveal-3">
+            @if(!empty($contributing))
+                <div style="font-size:10px;font-weight:700;color:#8e9196;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:var(--font-mono);">Contributing Factors</div>
+                @foreach($contributing as $factor)
+                    <div style="font-size:12px;color:#c4c6cc;line-height:1.6;margin-bottom:4px;">
+                        {{ is_array($factor) ? ($factor['factor'] ?? '').': '.($factor['detail'] ?? '') : $factor }}
+                    </div>
+                @endforeach
+            @endif
+            @if(!empty($teethOfConcern))
+                <div style="font-size:10px;font-weight:700;color:#8e9196;text-transform:uppercase;letter-spacing:.06em;margin:12px 0 8px;font-family:var(--font-mono);">Teeth of Concern</div>
+                @foreach($teethOfConcern as $tooth)
+                    <div style="font-size:12px;color:#c4c6cc;line-height:1.6;margin-bottom:4px;">
+                        Tooth {{ $tooth['tooth_number'] ?? '?' }} — {{ implode(', ', $tooth['issues'] ?? []) }}
+                    </div>
+                @endforeach
+            @endif
+            @if(!empty($treatmentRecs))
+                <div style="font-size:10px;font-weight:700;color:#8e9196;text-transform:uppercase;letter-spacing:.06em;margin:12px 0 8px;font-family:var(--font-mono);">Treatment Recommendations</div>
+                @foreach($treatmentRecs as $rec)
+                    <div style="font-size:12px;color:#c4c6cc;line-height:1.6;">• {{ $rec }}</div>
+                @endforeach
+            @endif
         </div>
     @endif
 
@@ -127,10 +283,14 @@
     @endif
 
     {{-- Fallback: just show input_summary --}}
-    @if(!$soap && !$findings && !$nuances && !$riskLevel)
+    @if(!$hasContent && !$parseError)
         <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px;" class="reveal reveal-2">
             <div style="font-size:12px;color:#c4c6cc;line-height:1.6;">{{ $result->input_summary }}</div>
         </div>
+    @endif
+
+    @if($disclaimer)
+        <p style="font-size:10px;color:#44474c;line-height:1.5;margin:0;">{{ $disclaimer }}</p>
     @endif
 
     {{-- Reviewer notes (if already reviewed) --}}
