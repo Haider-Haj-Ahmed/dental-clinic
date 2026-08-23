@@ -40,44 +40,54 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
-    // ─── Auth (public) — uses 'auth' named rate limiter ──────────────────────
-    Route::post('auth/login', [AuthController::class, 'login'])
-        ->middleware('throttle:auth');
+    /*
+    |──────────────────────────────────────────────────────────────
+    | AUTH — public endpoints (throttle:auth = 10 req/min per IP)
+    |──────────────────────────────────────────────────────────────
+    */
+    Route::prefix('auth')->middleware('throttle:auth')->group(function () {
+        Route::post('register',        [AuthController::class, 'register']);
+        Route::post('login',           [AuthController::class, 'login']);
+        Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+        Route::post('reset-password',  [AuthController::class, 'resetPassword']);
+    });
 
-    // ─── Authenticated — uses 'api' named rate limiter ────────────────────────
+    /*
+    |──────────────────────────────────────────────────────────────
+    | ALL AUTHENTICATED ROUTES (throttle:api)
+    |──────────────────────────────────────────────────────────────
+    */
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
-        // Auth session — no ability restriction
+        /*── Auth session management (no ability check needed) ────*/
         Route::prefix('auth')->group(function () {
             Route::get('me',          [AuthController::class, 'me']);
             Route::post('logout',     [AuthController::class, 'logout']);
             Route::post('logout-all', [AuthController::class, 'logoutAll']);
         });
 
-        // Staff & config (owner only — Gate::before handles it)
+        /*── Staff & config (owner only — Gate::before enforces) ──*/
         Route::apiResource('users',             UserController::class);
         Route::apiResource('operatories',       OperatoryController::class);
         Route::apiResource('appointment-types', AppointmentTypeController::class);
         Route::apiResource('procedure-codes',   ProcedureCodeController::class);
         Route::apiResource('payment-methods',   PaymentMethodController::class);
 
-        // Providers
+        /*── Providers ─────────────────────────────────────────────*/
         Route::apiResource('providers', ProviderController::class);
 
-        // ── Patients ──────────────────────────────────────────────────────────
+        /*── Patients ──────────────────────────────────────────────*/
         Route::middleware('token.ability:patients:read')->group(function () {
             Route::get('patients/{patient}/timeline', PatientTimelineController::class)->name('patients.timeline');
             Route::get('patients/{patient}/ledger',   [InvoiceController::class, 'ledger'])->name('patients.ledger');
             Route::apiResource('patients', PatientController::class)->only(['index', 'show']);
 
-            // Phase 2A — structured sub-tables (read)
             Route::apiResource('patients/{patient}/contacts',    PatientContactController::class)->only(['index', 'show'])->shallow();
             Route::apiResource('patients/{patient}/allergies',   PatientAllergyController::class)->only(['index', 'show'])->shallow();
             Route::apiResource('patients/{patient}/conditions',  PatientConditionController::class)->only(['index', 'show'])->shallow();
             Route::apiResource('patients/{patient}/medications', PatientMedicationController::class)->only(['index', 'show'])->shallow();
             Route::apiResource('patients/{patient}/consents',    PatientConsentController::class)->only(['index', 'show'])->shallow();
 
-            // Phase 2B — medical cases and documents (read)
             Route::apiResource('patients/{patient}/medical-cases', PatientMedicalCaseController::class)
                 ->only(['index', 'show'])
                 ->parameter('medical-cases', 'medicalCase');
@@ -85,9 +95,13 @@ Route::prefix('v1')->group(function () {
             Route::get('patients/{patient}/documents/{document}/download',
                 [PatientMedicalDocumentController::class, 'download']
             )->name('patients.documents.download');
+
             Route::apiResource('patients/{patient}/documents', PatientMedicalDocumentController::class)
                 ->only(['index', 'show'])
                 ->parameter('documents', 'document');
+
+            Route::get('patients/{patient}/ai-results',  [AiAnalysisController::class, 'patientResults'])->name('patients.ai-results.index');
+            Route::get('patients/{patient}/ai-insights', [AiAnalysisController::class, 'patientInsights'])->name('patients.ai-insights');
         });
 
         Route::middleware('token.ability:patients:write')->group(function () {
@@ -95,27 +109,24 @@ Route::prefix('v1')->group(function () {
             Route::post('patients/{patient}/restore', [PatientController::class, 'restore'])->withTrashed();
             Route::apiResource('patients', PatientController::class)->only(['store', 'update', 'destroy']);
 
-            // Phase 2A — write
             Route::apiResource('patients/{patient}/contacts',    PatientContactController::class)->only(['store', 'update', 'destroy'])->shallow();
             Route::apiResource('patients/{patient}/allergies',   PatientAllergyController::class)->only(['store', 'update', 'destroy'])->shallow();
             Route::apiResource('patients/{patient}/conditions',  PatientConditionController::class)->only(['store', 'update', 'destroy'])->shallow();
             Route::apiResource('patients/{patient}/medications', PatientMedicationController::class)->only(['store', 'update', 'destroy'])->shallow();
             Route::apiResource('patients/{patient}/consents',    PatientConsentController::class)->only(['store', 'update', 'destroy'])->shallow();
 
-            // Phase 2B-1 — medical cases write
             Route::apiResource('patients/{patient}/medical-cases', PatientMedicalCaseController::class)
                 ->only(['store', 'update', 'destroy'])
                 ->parameter('medical-cases', 'medicalCase');
         });
 
-        // Phase 2B-2 — document upload (assistants can upload too)
         Route::middleware('token.ability:documents:write')->group(function () {
             Route::apiResource('patients/{patient}/documents', PatientMedicalDocumentController::class)
                 ->only(['store', 'update', 'destroy'])
                 ->parameter('documents', 'document');
         });
 
-        // ── Appointments ──────────────────────────────────────────────────────
+        /*── Appointments ───────────────────────────────────────────*/
         Route::middleware('token.ability:appointments:read')->group(function () {
             Route::apiResource('appointments', AppointmentController::class)->only(['index', 'show']);
         });
@@ -124,7 +135,7 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('appointments', AppointmentController::class)->only(['store', 'update', 'destroy']);
         });
 
-        // ── Schedule blocks ───────────────────────────────────────────────────
+        /*── Schedule blocks ────────────────────────────────────────*/
         Route::middleware('token.ability:schedule-blocks:read')->group(function () {
             Route::apiResource('schedule-blocks', ScheduleBlockController::class)->only(['index', 'show']);
         });
@@ -133,9 +144,9 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('schedule-blocks', ScheduleBlockController::class)->only(['store', 'update', 'destroy']);
         });
 
-        // ── Recalls & communication logs ──────────────────────────────────────
+        /*── Recalls & communication logs ───────────────────────────*/
         Route::middleware('token.ability:recalls:read')->group(function () {
-            Route::get('recalls/due',                           [RecallController::class, 'due']);
+            Route::get('recalls/due', [RecallController::class, 'due']);
             Route::apiResource('recalls', RecallController::class)->only(['index', 'show']);
             Route::get('communication-logs',                    [CommunicationLogController::class, 'index']);
             Route::get('communication-logs/{communicationLog}', [CommunicationLogController::class, 'show']);
@@ -147,7 +158,7 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('recalls', RecallController::class)->only(['store', 'update', 'destroy']);
         });
 
-        // ── Billing ───────────────────────────────────────────────────────────
+        /*── Billing ────────────────────────────────────────────────*/
         Route::middleware('token.ability:billing:read')->group(function () {
             Route::apiResource('invoices',      InvoiceController::class)->only(['index', 'show']);
             Route::apiResource('invoices/{invoice}/items', InvoiceItemController::class)->only(['index'])->parameter('items', 'item');
@@ -165,9 +176,9 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('payment-plans', PaymentPlanController::class)->only(['store', 'destroy']);
         });
 
-        // ── Inventory ─────────────────────────────────────────────────────────
+        /*── Inventory ──────────────────────────────────────────────*/
         Route::middleware('token.ability:inventory:read')->group(function () {
-            Route::get('inventory-items/low-stock',             [InventoryItemController::class, 'lowStock']);
+            Route::get('inventory-items/low-stock',                 [InventoryItemController::class, 'lowStock']);
             Route::get('inventory-items/{inventoryItem}/movements', [InventoryItemController::class, 'movements']);
             Route::apiResource('inventory-items', InventoryItemController::class)->only(['index', 'show']);
             Route::apiResource('suppliers',       SupplierController::class)->only(['index', 'show']);
@@ -183,41 +194,16 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('purchase-orders', PurchaseOrderController::class)->only(['store', 'destroy']);
         });
 
-        // ── Clinical (provider-facing) ────────────────────────────────────────
+        /*── Clinical ───────────────────────────────────────────────*/
         Route::middleware('token.ability:clinical:read')->group(function () {
-            Route::apiResource('encounters', EncounterController::class)->only(['index', 'show']);
+            Route::apiResource('encounters',      EncounterController::class)->only(['index', 'show']);
             Route::get('encounters/{encounter}/odontogram-entries', [OdontogramController::class, 'encounterEntries']);
-            Route::get('patients/{patient}/odontogram', [OdontogramController::class, 'patientOdontogram']);
-            Route::apiResource('perio-exams', PerioExamController::class)->only(['index', 'show']);
+            Route::get('patients/{patient}/odontogram',             [OdontogramController::class, 'patientOdontogram']);
+            Route::apiResource('perio-exams',     PerioExamController::class)->only(['index', 'show']);
             Route::apiResource('treatment-plans', TreatmentPlanController::class)->only(['index', 'show']);
-            Route::apiResource('prescriptions', PrescriptionController::class)->only(['index', 'show']);
+            Route::apiResource('prescriptions',   PrescriptionController::class)->only(['index', 'show']);
         });
 
-        // ── Dashboard & reports (owner + receptionist — policy-enforced) ──────
-        Route::get('dashboard/kpis', [DashboardController::class, 'kpis']);
-        Route::prefix('reports')->group(function () {
-            Route::get('appointments',       [ReportController::class, 'appointments']);
-            Route::get('production',         [ReportController::class, 'production']);
-            Route::get('collections',        [ReportController::class, 'collections']);
-            Route::get('recall-performance', [ReportController::class, 'recallPerformance']);
-            Route::get('inventory',          [ReportController::class, 'inventory']);
-        });
-
-        // ── AI analysis (Phase 5A) ───────────────────────────────────────────────
-        Route::middleware('token.ability:clinical:write')->group(function () {
-            Route::post('patients/{patient}/documents/{document}/analyze', [AiAnalysisController::class, 'analyzeDocument'])
-                ->name('patients.documents.analyze');
-        });
-
-        Route::middleware('token.ability:clinical:read')->group(function () {
-            Route::get('patients/{patient}/ai-results', [AiAnalysisController::class, 'patientResults'])
-                ->name('patients.ai-results.index');
-            Route::get('patients/{patient}/ai-insights', [AiAnalysisController::class, 'patientInsights'])
-                ->name('patients.ai-insights');
-        });
-
-        // AI results actions — no ability middleware, policy handles it
-        // SOAP suggestion — clinical:write required
         Route::middleware('token.ability:clinical:write')->group(function () {
             // Encounters
             Route::apiResource('encounters', EncounterController::class)->only(['store', 'update', 'destroy']);
@@ -226,13 +212,13 @@ Route::prefix('v1')->group(function () {
 
             // Odontogram
             Route::post('encounters/{encounter}/odontogram-entries', [OdontogramController::class, 'store']);
-            Route::put('odontogram-entries/{odontogramEntry}',    [OdontogramController::class, 'update']);
-            Route::delete('odontogram-entries/{odontogramEntry}', [OdontogramController::class, 'destroy']);
+            Route::put('odontogram-entries/{odontogramEntry}',       [OdontogramController::class, 'update']);
+            Route::delete('odontogram-entries/{odontogramEntry}',    [OdontogramController::class, 'destroy']);
 
             // Perio
             Route::apiResource('perio-exams', PerioExamController::class)->only(['store', 'update', 'destroy']);
-            Route::post('perio-exams/{perioExam}/measures',                  [PerioExamController::class, 'storeMeasure']);
-            Route::delete('perio-exams/{perioExam}/measures/{measure}',      [PerioExamController::class, 'destroyMeasure']);
+            Route::post('perio-exams/{perioExam}/measures',             [PerioExamController::class, 'storeMeasure']);
+            Route::delete('perio-exams/{perioExam}/measures/{measure}', [PerioExamController::class, 'destroyMeasure']);
 
             // Treatment plans
             Route::apiResource('treatment-plans', TreatmentPlanController::class)->only(['store', 'update', 'destroy']);
@@ -243,24 +229,32 @@ Route::prefix('v1')->group(function () {
             // Prescriptions
             Route::apiResource('prescriptions', PrescriptionController::class)->only(['store', 'update', 'destroy']);
 
-            // AI clinical endpoints
-            Route::post('encounters/{encounter}/suggest-soap', [AiAnalysisController::class, 'suggestSoap'])
-                ->name('encounters.suggest-soap');
-            Route::post('patients/{patient}/prescription-suggestions', [AiAnalysisController::class, 'suggestPrescription'])
-                ->name('patients.prescription-suggestions');
-            Route::post('perio-exams/{perioExam}/risk-score', [AiAnalysisController::class, 'scorePerioRisk'])
-                ->name('perio-exams.risk-score');
-            Route::post('recalls/ai-prioritize', [AiAnalysisController::class, 'prioritiseRecalls'])
-                ->name('recalls.ai-prioritize');
+            // AI — triggers
+            Route::post('patients/{patient}/documents/{document}/analyze',  [AiAnalysisController::class, 'analyzeDocument'])->name('patients.documents.analyze');
+            Route::post('encounters/{encounter}/suggest-soap',               [AiAnalysisController::class, 'suggestSoap'])->name('encounters.suggest-soap');
+            Route::post('patients/{patient}/prescription-suggestions',       [AiAnalysisController::class, 'suggestPrescription'])->name('patients.prescription-suggestions');
+            Route::post('perio-exams/{perioExam}/risk-score',                [AiAnalysisController::class, 'scorePerioRisk'])->name('perio-exams.risk-score');
+            Route::post('recalls/ai-prioritize',                             [AiAnalysisController::class, 'prioritiseRecalls'])->name('recalls.ai-prioritize');
+
+            // AI — result review (moved inside clinical:write — consistent with policy + middleware layers)
+            Route::get('ai-results/{result}',                      [AiAnalysisController::class, 'show']);
+            Route::post('ai-results/{result}/accept',              [AiAnalysisController::class, 'accept']);
+            Route::post('ai-results/{result}/dismiss',             [AiAnalysisController::class, 'dismiss']);
+            Route::post('ai-results/{result}/apply-soap',          [AiAnalysisController::class, 'applySoap']);
+            Route::post('ai-results/{result}/create-prescription', [AiAnalysisController::class, 'createPrescription']);
         });
 
-        Route::get('ai-results/{result}',           [AiAnalysisController::class, 'show']);
-        Route::post('ai-results/{result}/accept',   [AiAnalysisController::class, 'accept']);
-        Route::post('ai-results/{result}/dismiss',  [AiAnalysisController::class, 'dismiss']);
-        Route::post('ai-results/{result}/apply-soap',          [AiAnalysisController::class, 'applySoap']);
-        Route::post('ai-results/{result}/create-prescription', [AiAnalysisController::class, 'createPrescription']);
+        /*── Dashboard & reports ────────────────────────────────────*/
+        Route::get('dashboard/kpis', [DashboardController::class, 'kpis']);
+        Route::prefix('reports')->group(function () {
+            Route::get('appointments',       [ReportController::class, 'appointments']);
+            Route::get('production',         [ReportController::class, 'production']);
+            Route::get('collections',        [ReportController::class, 'collections']);
+            Route::get('recall-performance', [ReportController::class, 'recallPerformance']);
+            Route::get('inventory',          [ReportController::class, 'inventory']);
+        });
 
-        // ── Audit logs (owner only — policy-enforced) ─────────────────────────
+        /*── Audit logs (owner only — policy-enforced) ──────────────*/
         Route::get('audit-logs',            [AuditLogController::class, 'index']);
         Route::get('audit-logs/{auditLog}', [AuditLogController::class, 'show']);
     });
