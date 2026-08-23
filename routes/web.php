@@ -34,7 +34,7 @@ Route::prefix('dashboard')
     ->group(function () {
 
         /* ── Stubs — replace with dedicated Web controllers per screen ── */
-        Route::get('/',                    fn () => view('web.dashboard.index'))->name('dashboard');
+        Route::get('/',                    fn () => redirect()->route('web.ai'))->name('dashboard');
         Route::get('/appointments',        fn () => view('web.appointments.index'))->name('appointments');
         Route::get('/appointments/create', fn () => view('web.appointments.create'))->name('appointments.create');
         Route::get('/patients',            fn () => view('web.patients.index'))->name('patients');
@@ -78,6 +78,6 @@ Route::prefix('dashboard')
 
 /* Root → redirect to dashboard or login */
 Route::get('/', fn () => auth()->check()
-    ? redirect()->route('web.dashboard')
+    ? redirect()->route('web.ai')
     : redirect()->route('login')
 );
