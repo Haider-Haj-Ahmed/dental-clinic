@@ -32,6 +32,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'email_verified_at', // required so seeder updateOrCreate and register flow can set it
     ];
 
     protected $hidden = [
@@ -68,11 +69,8 @@ class User extends Authenticatable
     }
 
     /**
-     * Token abilities issued at login.
-     *
-     * Abilities map to route groups protected by token.ability middleware.
-     * Owner gets '*' — bypasses all checks.
-     * All other roles get an explicit list that mirrors what their policies allow.
+     * Token abilities scoped per role.
+     * Owner gets '*' — bypasses all token.ability checks.
      */
     public function tokenAbilities(): array
     {
