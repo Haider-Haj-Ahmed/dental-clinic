@@ -55,6 +55,7 @@ class DevelopmentSeeder extends Seeder
         $provider = Provider::query()->updateOrCreate(
             ['user_id' => $providerUser->id],
             [
+                'name'           => $providerUser->name,
                 'specialty'      => 'General Dentistry',
                 'license_number' => 'SY-GD-00421',
                 'phone'          => '+963-11-555-0001',
@@ -75,6 +76,7 @@ class DevelopmentSeeder extends Seeder
         $provider2 = Provider::query()->updateOrCreate(
             ['user_id' => $providerUser2->id],
             [
+                'name'           => $providerUser2->name,
                 'specialty'      => 'Endodontics',
                 'license_number' => 'SY-EN-00187',
                 'phone'          => '+963-11-555-0002',
