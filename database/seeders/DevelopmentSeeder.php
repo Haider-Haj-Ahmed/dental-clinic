@@ -445,32 +445,59 @@ class DevelopmentSeeder extends Seeder
 
         // ══════════════════════════════════════════════════════════
         // 8. MEDICAL CASES + DOCUMENTS
-        // patient_id consistent throughout
-        // uploaded_by is a User id (not Provider id)
+        // Actual schema: case_type, chief_complaint, diagnosis,
+        // treatment_performed, case_date, created_by (required)
+        // No title/status/opened_at columns
         // ══════════════════════════════════════════════════════════
 
         $case1 = PatientMedicalCase::firstOrCreate(
-            ['patient_id' => $pAhmad->id, 'title' => 'Root Canal Therapy #36'],
-            ['patient_id' => $pAhmad->id, 'title' => 'Root Canal Therapy #36', 'description' => 'Irreversible pulpitis, apical periodontitis. Penicillin allergy documented.', 'status' => 'active', 'opened_at' => now()->subDays(30)]
+            ['patient_id' => $pAhmad->id, 'case_type' => 'root_canal', 'case_date' => now()->subDays(30)->toDateString()],
+            [
+                'patient_id'          => $pAhmad->id,
+                'provider_id'         => $provider->id,
+                'case_type'           => 'root_canal',
+                'case_date'           => now()->subDays(30)->toDateString(),
+                'chief_complaint'     => 'Intermittent pain lower left quadrant, onset 2 weeks.',
+                'diagnosis'           => 'Irreversible pulpitis #36 with symptomatic apical periodontitis.',
+                'treatment_performed' => 'Root canal therapy #36 initiated. Metronidazole prescribed (Penicillin allergy).',
+                'outcome'             => 'Referred to endodontist for completion.',
+                'is_external'         => false,
+                'notes'               => 'Penicillin allergy documented — avoid all beta-lactams.',
+                'created_by'          => $owner->id,
+            ]
         );
 
         $doc = PatientMedicalDocument::firstOrCreate(
             ['patient_id' => $pAhmad->id, 'title' => 'Periapical X-Ray #36'],
             [
-                'patient_id'      => $pAhmad->id,
-                'medical_case_id' => $case1->id,
-                'title'           => 'Periapical X-Ray #36',
-                'document_type'   => 'xray',
-                'file_path'       => 'documents/sample/xray_placeholder.jpg',
-                'mime_type'       => 'image/jpeg',
-                'uploaded_by'     => $providerUser->id,
-                'uploaded_at'     => now()->subDays(30),
+                'patient_id'           => $pAhmad->id,
+                'medical_case_id'      => $case1->id,
+                'title'                => 'Periapical X-Ray #36',
+                'document_type'        => 'xray',
+                'file_path'            => 'documents/sample/xray_placeholder.jpg',
+                'file_size_kb'         => 512,
+                'mime_type'            => 'image/jpeg',
+                'taken_at'             => now()->subDays(30)->toDateString(),
+                'is_visible_to_patient'=> false,
+                'uploaded_by'          => $providerUser->id,
             ]
         );
 
         PatientMedicalCase::firstOrCreate(
-            ['patient_id' => $pRami->id, 'title' => 'Crown Preparation #16'],
-            ['patient_id' => $pRami->id, 'title' => 'Crown Preparation #16', 'description' => 'Full coverage crown. Warfarin therapy — INR monitored.', 'status' => 'active', 'opened_at' => now()->subDays(14)]
+            ['patient_id' => $pRami->id, 'case_type' => 'root_canal', 'case_date' => now()->subDays(14)->toDateString()],
+            [
+                'patient_id'          => $pRami->id,
+                'provider_id'         => $provider2->id,
+                'case_type'           => 'root_canal',
+                'case_date'           => now()->subDays(14)->toDateString(),
+                'chief_complaint'     => 'Spontaneous throbbing pain tooth 36. Pain 8/10.',
+                'diagnosis'           => 'Pulp necrosis #36 with symptomatic apical periodontitis.',
+                'treatment_performed' => 'Root canal therapy completed. Metronidazole prescribed.',
+                'outcome'             => 'Successful. Recall in 6 months.',
+                'is_external'         => false,
+                'notes'               => 'Amoxicillin allergy + Warfarin therapy — avoid NSAIDs.',
+                'created_by'          => $owner->id,
+            ]
         );
 
         // ══════════════════════════════════════════════════════════
