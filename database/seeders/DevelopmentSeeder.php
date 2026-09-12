@@ -124,8 +124,8 @@ class DevelopmentSeeder extends Seeder
             ]
         );
         PatientAllergy::firstOrCreate(['patient_id' => $pAhmad->id, 'allergen' => 'Penicillin'], ['patient_id' => $pAhmad->id, 'allergen' => 'Penicillin', 'reaction' => 'Anaphylaxis', 'severity' => 'severe']);
-        PatientCondition::firstOrCreate(['patient_id' => $pAhmad->id, 'name' => 'Type 2 Diabetes'], ['patient_id' => $pAhmad->id, 'name' => 'Type 2 Diabetes', 'notes' => 'Managed with Metformin']);
-        PatientMedication::firstOrCreate(['patient_id' => $pAhmad->id, 'name' => 'Metformin'], ['patient_id' => $pAhmad->id, 'name' => 'Metformin', 'dose' => '500mg', 'frequency' => 'twice daily']);
+        PatientCondition::firstOrCreate(['patient_id' => $pAhmad->id, 'condition' => 'Type 2 Diabetes'], ['patient_id' => $pAhmad->id, 'condition' => 'Type 2 Diabetes', 'notes' => 'Managed with Metformin']);
+        PatientMedication::firstOrCreate(['patient_id' => $pAhmad->id, 'drug_name' => 'Metformin'], ['patient_id' => $pAhmad->id, 'drug_name' => 'Metformin', 'dose' => '500mg', 'frequency' => 'twice daily']);
 
         $pSara = Patient::query()->updateOrCreate(
             ['phone' => '+963-933-111-002'],
@@ -153,8 +153,8 @@ class DevelopmentSeeder extends Seeder
             ]
         );
         PatientAllergy::firstOrCreate(['patient_id' => $pRami->id, 'allergen' => 'Amoxicillin'], ['patient_id' => $pRami->id, 'allergen' => 'Amoxicillin', 'reaction' => 'Rash', 'severity' => 'moderate']);
-        PatientCondition::firstOrCreate(['patient_id' => $pRami->id, 'name' => 'Hypertension'], ['patient_id' => $pRami->id, 'name' => 'Hypertension', 'notes' => 'Controlled with Amlodipine']);
-        PatientMedication::firstOrCreate(['patient_id' => $pRami->id, 'name' => 'Amlodipine'], ['patient_id' => $pRami->id, 'name' => 'Amlodipine', 'dose' => '5mg', 'frequency' => 'once daily']);
+        PatientCondition::firstOrCreate(['patient_id' => $pRami->id, 'condition' => 'Hypertension'], ['patient_id' => $pRami->id, 'condition' => 'Hypertension', 'notes' => 'Controlled with Amlodipine']);
+        PatientMedication::firstOrCreate(['patient_id' => $pRami->id, 'drug_name' => 'Amlodipine'], ['patient_id' => $pRami->id, 'drug_name' => 'Amlodipine', 'dose' => '5mg', 'frequency' => 'once daily']);
 
         $pLina = Patient::query()->updateOrCreate(
             ['phone' => '+963-933-111-004'],
@@ -182,9 +182,9 @@ class DevelopmentSeeder extends Seeder
             ]
         );
         PatientAllergy::firstOrCreate(['patient_id' => $pKhaled->id, 'allergen' => 'NSAIDs'], ['patient_id' => $pKhaled->id, 'allergen' => 'NSAIDs', 'reaction' => 'GI bleeding', 'severity' => 'severe']);
-        PatientCondition::firstOrCreate(['patient_id' => $pKhaled->id, 'name' => 'Warfarin therapy'], ['patient_id' => $pKhaled->id, 'name' => 'Warfarin therapy', 'notes' => 'INR must be checked before extractions']);
-        PatientCondition::firstOrCreate(['patient_id' => $pKhaled->id, 'name' => 'Atrial Fibrillation'], ['patient_id' => $pKhaled->id, 'name' => 'Atrial Fibrillation', 'notes' => 'Cardiology clearance required for surgery']);
-        PatientMedication::firstOrCreate(['patient_id' => $pKhaled->id, 'name' => 'Warfarin'], ['patient_id' => $pKhaled->id, 'name' => 'Warfarin', 'dose' => '5mg', 'frequency' => 'once daily']);
+        PatientCondition::firstOrCreate(['patient_id' => $pKhaled->id, 'condition' => 'Warfarin therapy'], ['patient_id' => $pKhaled->id, 'condition' => 'Warfarin therapy', 'notes' => 'INR must be checked before extractions']);
+        PatientCondition::firstOrCreate(['patient_id' => $pKhaled->id, 'condition' => 'Atrial Fibrillation'], ['patient_id' => $pKhaled->id, 'condition' => 'Atrial Fibrillation', 'notes' => 'Cardiology clearance required for surgery']);
+        PatientMedication::firstOrCreate(['patient_id' => $pKhaled->id, 'drug_name' => 'Warfarin'], ['patient_id' => $pKhaled->id, 'drug_name' => 'Warfarin', 'dose' => '5mg', 'frequency' => 'once daily']);
 
         $pMaya = Patient::query()->updateOrCreate(
             ['phone' => '+963-933-111-006'],
@@ -195,7 +195,7 @@ class DevelopmentSeeder extends Seeder
             ['phone' => '+963-933-111-007'],
             ['first_name' => 'Omar', 'last_name' => 'Saleh', 'date_of_birth' => '1988-12-03', 'gender' => 'male', 'phone' => '+963-933-111-007', 'email' => 'omar.saleh@email.com', 'address' => 'Inshaat, Homs, Syria']
         );
-        PatientCondition::firstOrCreate(['patient_id' => $pOmar->id, 'name' => 'Dental Anxiety'], ['patient_id' => $pOmar->id, 'name' => 'Dental Anxiety', 'notes' => 'May need sedation protocol']);
+        PatientCondition::firstOrCreate(['patient_id' => $pOmar->id, 'condition' => 'Dental Anxiety'], ['patient_id' => $pOmar->id, 'condition' => 'Dental Anxiety', 'notes' => 'May need sedation protocol']);
 
         $pNour = Patient::query()->updateOrCreate(
             ['phone' => '+963-933-111-008'],
@@ -207,10 +207,10 @@ class DevelopmentSeeder extends Seeder
             ['phone' => '+963-933-111-009'],
             ['first_name' => 'Tarek', 'last_name' => 'Barakat', 'date_of_birth' => '1961-04-07', 'gender' => 'male', 'phone' => '+963-933-111-009', 'email' => null, 'address' => 'Al-Mreijeh, Homs, Syria']
         );
-        PatientCondition::firstOrCreate(['patient_id' => $pTarek->id, 'name' => 'Osteoporosis'], ['patient_id' => $pTarek->id, 'name' => 'Osteoporosis', 'notes' => 'On bisphosphonates — risk of MRONJ']);
-        PatientCondition::firstOrCreate(['patient_id' => $pTarek->id, 'name' => 'Type 2 Diabetes'], ['patient_id' => $pTarek->id, 'name' => 'Type 2 Diabetes', 'notes' => 'Poorly controlled, HbA1c 9.2%']);
-        PatientMedication::firstOrCreate(['patient_id' => $pTarek->id, 'name' => 'Alendronate'], ['patient_id' => $pTarek->id, 'name' => 'Alendronate', 'dose' => '70mg', 'frequency' => 'once weekly']);
-        PatientMedication::firstOrCreate(['patient_id' => $pTarek->id, 'name' => 'Insulin glargine'], ['patient_id' => $pTarek->id, 'name' => 'Insulin glargine', 'dose' => '20 units', 'frequency' => 'bedtime']);
+        PatientCondition::firstOrCreate(['patient_id' => $pTarek->id, 'condition' => 'Osteoporosis'], ['patient_id' => $pTarek->id, 'condition' => 'Osteoporosis', 'notes' => 'On bisphosphonates — risk of MRONJ']);
+        PatientCondition::firstOrCreate(['patient_id' => $pTarek->id, 'condition' => 'Type 2 Diabetes'], ['patient_id' => $pTarek->id, 'condition' => 'Type 2 Diabetes', 'notes' => 'Poorly controlled, HbA1c 9.2%']);
+        PatientMedication::firstOrCreate(['patient_id' => $pTarek->id, 'drug_name' => 'Alendronate'], ['patient_id' => $pTarek->id, 'drug_name' => 'Alendronate', 'dose' => '70mg', 'frequency' => 'once weekly']);
+        PatientMedication::firstOrCreate(['patient_id' => $pTarek->id, 'drug_name' => 'Insulin glargine'], ['patient_id' => $pTarek->id, 'drug_name' => 'Insulin glargine', 'dose' => '20 units', 'frequency' => 'bedtime']);
 
         $pHala = Patient::query()->updateOrCreate(
             ['phone' => '+963-933-111-010'],
