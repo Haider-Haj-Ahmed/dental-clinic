@@ -404,44 +404,44 @@ class DevelopmentSeeder extends Seeder
         // Ahmad exam — paid
         $inv1 = Invoice::firstOrCreate(
             ['appointment_id' => $apptAhmadExam->id],
-            ['patient_id' => $pAhmad->id, 'appointment_id' => $apptAhmadExam->id, 'status' => 'finalized', 'finalized_by' => $owner->id, 'finalized_at' => now()->subDays(30)->addHours(2)]
+            ['patient_id' => $pAhmad->id, 'appointment_id' => $apptAhmadExam->id, 'status' => 'finalized', 'finalized_by' => $owner->id, 'issued_at' => now()->subDays(30)->toDateString(), 'subtotal' => 8000, 'total' => 8000]
         );
-        InvoiceItem::firstOrCreate(['invoice_id' => $inv1->id, 'description' => 'New Patient Exam'],       ['invoice_id' => $inv1->id, 'description' => 'New Patient Exam',   'quantity' => 1, 'unit_price' => 5000,  'total' => 5000]);
-        InvoiceItem::firstOrCreate(['invoice_id' => $inv1->id, 'description' => 'Periapical X-Ray (x2)'], ['invoice_id' => $inv1->id, 'description' => 'Periapical X-Ray (x2)', 'quantity' => 2, 'unit_price' => 1500, 'total' => 3000]);
+        InvoiceItem::firstOrCreate(['invoice_id' => $inv1->id, 'description' => 'New Patient Exam'],       ['invoice_id' => $inv1->id, 'description' => 'New Patient Exam',   'qty' => 1, 'unit_price' => 5000,  'total' => 5000]);
+        InvoiceItem::firstOrCreate(['invoice_id' => $inv1->id, 'description' => 'Periapical X-Ray (x2)'], ['invoice_id' => $inv1->id, 'description' => 'Periapical X-Ray (x2)', 'qty' => 2, 'unit_price' => 1500, 'total' => 3000]);
         Payment::firstOrCreate(
             ['invoice_id' => $inv1->id, 'patient_id' => $pAhmad->id],
-            ['invoice_id' => $inv1->id, 'patient_id' => $pAhmad->id, 'amount' => 8000, 'method' => 'cash', 'paid_at' => now()->subDays(30)->addHours(2), 'recorded_by' => $owner->id]
+            ['invoice_id' => $inv1->id, 'patient_id' => $pAhmad->id, 'amount' => 8000, 'paid_at' => now()->subDays(30)->toDateString(), 'recorded_by' => $owner->id]
         );
 
         // Rami RCT — partial payment
         $inv2 = Invoice::firstOrCreate(
             ['appointment_id' => $apptRamiRCT->id],
-            ['patient_id' => $pRami->id, 'appointment_id' => $apptRamiRCT->id, 'status' => 'finalized', 'finalized_by' => $owner->id, 'finalized_at' => now()->subDays(14)->addHours(2), 'notes' => 'Balance due next visit.']
+            ['patient_id' => $pRami->id, 'appointment_id' => $apptRamiRCT->id, 'status' => 'finalized', 'finalized_by' => $owner->id, 'issued_at' => now()->subDays(14)->toDateString(), 'subtotal' => 36500, 'total' => 36500, 'notes' => 'Balance due next visit.']
         );
-        InvoiceItem::firstOrCreate(['invoice_id' => $inv2->id, 'description' => 'Root Canal Therapy #36'], ['invoice_id' => $inv2->id, 'description' => 'Root Canal Therapy #36', 'quantity' => 1, 'unit_price' => 35000, 'total' => 35000]);
-        InvoiceItem::firstOrCreate(['invoice_id' => $inv2->id, 'description' => 'Periapical X-Ray'],       ['invoice_id' => $inv2->id, 'description' => 'Periapical X-Ray',       'quantity' => 1, 'unit_price' => 1500,  'total' => 1500]);
+        InvoiceItem::firstOrCreate(['invoice_id' => $inv2->id, 'description' => 'Root Canal Therapy #36'], ['invoice_id' => $inv2->id, 'description' => 'Root Canal Therapy #36', 'qty' => 1, 'unit_price' => 35000, 'total' => 35000]);
+        InvoiceItem::firstOrCreate(['invoice_id' => $inv2->id, 'description' => 'Periapical X-Ray'],       ['invoice_id' => $inv2->id, 'description' => 'Periapical X-Ray',       'qty' => 1, 'unit_price' => 1500,  'total' => 1500]);
         Payment::firstOrCreate(
             ['invoice_id' => $inv2->id, 'patient_id' => $pRami->id],
-            ['invoice_id' => $inv2->id, 'patient_id' => $pRami->id, 'amount' => 20000, 'method' => 'cash', 'paid_at' => now()->subDays(14)->addHours(2), 'notes' => 'Partial. Balance 16,500.', 'recorded_by' => $owner->id]
+            ['invoice_id' => $inv2->id, 'patient_id' => $pRami->id, 'amount' => 20000, 'paid_at' => now()->subDays(14)->toDateString(), 'notes' => 'Partial payment. Balance 16,500.', 'recorded_by' => $owner->id]
         );
 
         // Sara recall — paid
         $inv3 = Invoice::firstOrCreate(
             ['appointment_id' => $apptSaraRecall->id],
-            ['patient_id' => $pSara->id, 'appointment_id' => $apptSaraRecall->id, 'status' => 'finalized', 'finalized_by' => $owner->id, 'finalized_at' => now()->subDays(7)->addHour()]
+            ['patient_id' => $pSara->id, 'appointment_id' => $apptSaraRecall->id, 'status' => 'finalized', 'finalized_by' => $owner->id, 'issued_at' => now()->subDays(7)->toDateString(), 'subtotal' => 8000, 'total' => 8000]
         );
-        InvoiceItem::firstOrCreate(['invoice_id' => $inv3->id, 'description' => 'Scaling & Polishing'], ['invoice_id' => $inv3->id, 'description' => 'Scaling & Polishing', 'quantity' => 1, 'unit_price' => 8000, 'total' => 8000]);
+        InvoiceItem::firstOrCreate(['invoice_id' => $inv3->id, 'description' => 'Scaling & Polishing'], ['invoice_id' => $inv3->id, 'description' => 'Scaling & Polishing', 'qty' => 1, 'unit_price' => 8000, 'total' => 8000]);
         Payment::firstOrCreate(
             ['invoice_id' => $inv3->id, 'patient_id' => $pSara->id],
-            ['invoice_id' => $inv3->id, 'patient_id' => $pSara->id, 'amount' => 8000, 'method' => 'cash', 'paid_at' => now()->subDays(7)->addHour(), 'recorded_by' => $owner->id]
+            ['invoice_id' => $inv3->id, 'patient_id' => $pSara->id, 'amount' => 8000, 'paid_at' => now()->subDays(7)->toDateString(), 'recorded_by' => $owner->id]
         );
 
         // Lina filling — draft, unpaid
         $inv4 = Invoice::firstOrCreate(
             ['appointment_id' => $apptLinaFilling->id],
-            ['patient_id' => $pLina->id, 'appointment_id' => $apptLinaFilling->id, 'status' => 'draft']
+            ['patient_id' => $pLina->id, 'appointment_id' => $apptLinaFilling->id, 'status' => 'draft', 'issued_at' => now()->subDays(3)->toDateString(), 'subtotal' => 12000, 'total' => 12000]
         );
-        InvoiceItem::firstOrCreate(['invoice_id' => $inv4->id, 'description' => 'Composite Restoration #23'], ['invoice_id' => $inv4->id, 'description' => 'Composite Restoration #23', 'quantity' => 1, 'unit_price' => 12000, 'total' => 12000]);
+        InvoiceItem::firstOrCreate(['invoice_id' => $inv4->id, 'description' => 'Composite Restoration #23'], ['invoice_id' => $inv4->id, 'description' => 'Composite Restoration #23', 'qty' => 1, 'unit_price' => 12000, 'total' => 12000]);
 
         // ══════════════════════════════════════════════════════════
         // 8. MEDICAL CASES + DOCUMENTS
