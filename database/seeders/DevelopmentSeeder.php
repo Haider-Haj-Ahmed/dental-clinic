@@ -373,23 +373,26 @@ class DevelopmentSeeder extends Seeder
         // patient_id + created_by
         // ══════════════════════════════════════════════════════════
 
+        // Recall statuses: pending, sent, booked, dismissed (no STATUS_OVERDUE on the model)
+        // Overdue = past due_date + still pending/sent — handled by query, not a status value
+        // type and created_by are not in $fillable — omitted
         $recallsData = [
-            [$pAhmad,  now()->subDays(15),  Recall::STATUS_OVERDUE, 'routine',   '6-month recall overdue'],
-            [$pRami,   now()->addDays(14),  Recall::STATUS_PENDING, 'follow_up', 'Root canal 6-month review'],
-            [$pSara,   now()->addMonths(6), Recall::STATUS_PENDING, 'routine',   '6-month recall'],
-            [$pLina,   now()->addYear(),    Recall::STATUS_PENDING, 'routine',   '12-month recall'],
-            [$pKhaled, now()->subDays(45),  Recall::STATUS_OVERDUE, 'routine',   'High-risk patient overdue'],
-            [$pMaya,   now()->addMonths(6), Recall::STATUS_PENDING, 'routine',   null],
-            [$pOmar,   now()->addMonths(3), Recall::STATUS_PENDING, 'routine',   null],
-            [$pNour,   now()->subDays(5),   Recall::STATUS_SENT,    'routine',   'Reminder sent via SMS'],
-            [$pTarek,  now()->subDays(60),  Recall::STATUS_OVERDUE, 'routine',   'Bisphosphonate patient — priority recall'],
-            [$pHala,   now()->addMonths(6), Recall::STATUS_PENDING, 'routine',   null],
+            [$pAhmad,  now()->subDays(15),  Recall::STATUS_PENDING,  '6-month recall overdue — past due date'],
+            [$pRami,   now()->addDays(14),  Recall::STATUS_PENDING,  'Root canal 6-month review'],
+            [$pSara,   now()->addMonths(6), Recall::STATUS_PENDING,  '6-month recall'],
+            [$pLina,   now()->addYear(),    Recall::STATUS_PENDING,  '12-month recall'],
+            [$pKhaled, now()->subDays(45),  Recall::STATUS_PENDING,  'High-risk patient — past due date'],
+            [$pMaya,   now()->addMonths(6), Recall::STATUS_PENDING,  null],
+            [$pOmar,   now()->addMonths(3), Recall::STATUS_PENDING,  null],
+            [$pNour,   now()->subDays(5),   Recall::STATUS_SENT,     'Reminder sent via SMS'],
+            [$pTarek,  now()->subDays(60),  Recall::STATUS_PENDING,  'Bisphosphonate patient — priority recall'],
+            [$pHala,   now()->addMonths(6), Recall::STATUS_PENDING,  null],
         ];
 
-        foreach ($recallsData as [$patient, $dueDate, $status, $type, $notes]) {
+        foreach ($recallsData as [$patient, $dueDate, $status, $notes]) {
             Recall::firstOrCreate(
                 ['patient_id' => $patient->id, 'due_date' => $dueDate->toDateString()],
-                ['patient_id' => $patient->id, 'due_date' => $dueDate, 'status' => $status, 'type' => $type, 'notes' => $notes, 'created_by' => $owner->id]
+                ['patient_id' => $patient->id, 'due_date' => $dueDate, 'status' => $status, 'notes' => $notes]
             );
         }
 
