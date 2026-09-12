@@ -647,22 +647,30 @@ class DevelopmentSeeder extends Seeder
         // 10. INVENTORY + SUPPLIER
         // ══════════════════════════════════════════════════════════
 
-        Supplier::firstOrCreate(
+        $supplier = Supplier::firstOrCreate(
             ['name' => 'Syrian Dental Supplies Co.'],
-            ['name' => 'Syrian Dental Supplies Co.', 'phone' => '+963-11-444-5555', 'email' => 'orders@syriandental.sy', 'address' => 'Industrial Zone, Damascus, Syria']
+            [
+                'name'         => 'Syrian Dental Supplies Co.',
+                'contact_name' => 'Ahmad Karimi',
+                'phone'        => '+963-11-444-5555',
+                'email'        => 'orders@syriandental.sy',
+                'address'      => 'Industrial Zone, Damascus, Syria',
+                'is_active'    => true,
+            ]
         );
 
+        // column is current_stock not quantity
         $inventoryItems = [
-            ['name' => 'Composite Resin A2',        'unit' => 'syringe', 'quantity' => 12, 'reorder_level' => 5,  'unit_cost' => 4500],
-            ['name' => 'Composite Resin A3',        'unit' => 'syringe', 'quantity' => 8,  'reorder_level' => 5,  'unit_cost' => 4500],
-            ['name' => 'Latex Gloves M (box/100)',   'unit' => 'box',     'quantity' => 6,  'reorder_level' => 3,  'unit_cost' => 8000],
-            ['name' => 'Non-Latex Gloves M (box/100)','unit' => 'box',   'quantity' => 2,  'reorder_level' => 3,  'unit_cost' => 9000],
-            ['name' => 'Surgical Masks (box/50)',    'unit' => 'box',     'quantity' => 10, 'reorder_level' => 4,  'unit_cost' => 6000],
-            ['name' => 'Lidocaine 2% cartridge',    'unit' => 'box',     'quantity' => 3,  'reorder_level' => 5,  'unit_cost' => 15000],
-            ['name' => 'Metronidazole 500mg',        'unit' => 'strip',   'quantity' => 20, 'reorder_level' => 10, 'unit_cost' => 2000],
-            ['name' => 'Ibuprofen 400mg',            'unit' => 'strip',   'quantity' => 15, 'reorder_level' => 10, 'unit_cost' => 1500],
-            ['name' => 'Calcium Hydroxide paste',    'unit' => 'tube',    'quantity' => 4,  'reorder_level' => 2,  'unit_cost' => 12000],
-            ['name' => 'Gutta Percha Points #30',    'unit' => 'box',     'quantity' => 1,  'reorder_level' => 2,  'unit_cost' => 7000],
+            ['name' => 'Composite Resin A2',         'unit' => 'syringe', 'current_stock' => 12, 'reorder_level' => 5,  'unit_cost' => 4500,  'category' => 'restorative', 'supplier_id' => $supplier->id],
+            ['name' => 'Composite Resin A3',         'unit' => 'syringe', 'current_stock' => 8,  'reorder_level' => 5,  'unit_cost' => 4500,  'category' => 'restorative', 'supplier_id' => $supplier->id],
+            ['name' => 'Latex Gloves M (box/100)',   'unit' => 'box',     'current_stock' => 6,  'reorder_level' => 3,  'unit_cost' => 8000,  'category' => 'ppe',         'supplier_id' => $supplier->id],
+            ['name' => 'Non-Latex Gloves M (box/100)','unit' => 'box',   'current_stock' => 2,  'reorder_level' => 3,  'unit_cost' => 9000,  'category' => 'ppe',         'supplier_id' => $supplier->id],
+            ['name' => 'Surgical Masks (box/50)',    'unit' => 'box',     'current_stock' => 10, 'reorder_level' => 4,  'unit_cost' => 6000,  'category' => 'ppe',         'supplier_id' => $supplier->id],
+            ['name' => 'Lidocaine 2% cartridge',    'unit' => 'box',     'current_stock' => 3,  'reorder_level' => 5,  'unit_cost' => 15000, 'category' => 'anaesthetic', 'supplier_id' => $supplier->id],
+            ['name' => 'Metronidazole 500mg',        'unit' => 'strip',   'current_stock' => 20, 'reorder_level' => 10, 'unit_cost' => 2000,  'category' => 'medication',  'supplier_id' => $supplier->id],
+            ['name' => 'Ibuprofen 400mg',            'unit' => 'strip',   'current_stock' => 15, 'reorder_level' => 10, 'unit_cost' => 1500,  'category' => 'medication',  'supplier_id' => $supplier->id],
+            ['name' => 'Calcium Hydroxide paste',    'unit' => 'tube',    'current_stock' => 4,  'reorder_level' => 2,  'unit_cost' => 12000, 'category' => 'endodontic',  'supplier_id' => $supplier->id],
+            ['name' => 'Gutta Percha Points #30',    'unit' => 'box',     'current_stock' => 1,  'reorder_level' => 2,  'unit_cost' => 7000,  'category' => 'endodontic',  'supplier_id' => $supplier->id],
         ];
 
         foreach ($inventoryItems as $data) {
