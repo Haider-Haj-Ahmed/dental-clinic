@@ -8,11 +8,14 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Resources\UserResource;
+use App\Mail\VerifyEmailMail;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -20,32 +23,18 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
-    /* ══════════════════════════════════════════════════════════
-     * REGISTER
-     * POST /api/v1/auth/register
-     *
-     * Only an owner can create accounts for other staff.
-     * The first account (no users in DB) is always granted owner
-     * role regardless of what role was passed — bootstrapping.
-     * ══════════════════════════════════════════════════════════ */
     public function register(RegisterRequest $request): JsonResponse
     {
-        // Bootstrap: if no users exist yet, first registration is always owner
         $isFirstUser = User::query()->doesntExist();
 
-        // After bootstrap: only owners may register new staff
         if (! $isFirstUser) {
             $requestingUser = $request->user();
-
             if (! $requestingUser || ! $requestingUser->isOwner()) {
-                return response()->json([
-                    'message' => 'Only clinic owners can register new staff accounts.',
-                ], 403);
+                return response()->json(['message' => 'Only clinic owners can register new staff accounts.'], 403);
             }
         }
 
         $data = $request->validated();
-
         if ($isFirstUser) {
             $data['role'] = User::ROLE_OWNER;
         }
@@ -53,140 +42,123 @@ class AuthController extends Controller
         $user = User::create([
             'name'     => $data['name'],
             'email'    => $data['email'],
-            'password' => $data['password'],   // hashed by model cast
+            'password' => $data['password'],
             'role'     => $data['role'],
         ]);
+
+        // Fires → AppServiceProvider listener → queues VerifyEmailMail
+        event(new Registered($user));
 
         $abilities = $user->tokenAbilities();
         $token     = $user->createToken($data['device_name'], $abilities)->plainTextToken;
 
         return response()->json([
-            'message'    => 'Account created successfully.',
-            'token'      => $token,
-            'token_type' => 'Bearer',
-            'abilities'  => $abilities,
-            'user'       => UserResource::make($user),
+            'message'        => 'Account created successfully. A verification email has been sent.',
+            'token'          => $token,
+            'token_type'     => 'Bearer',
+            'abilities'      => $abilities,
+            'email_verified' => false,
+            'user'           => UserResource::make($user),
         ], 201);
     }
 
-    /* ══════════════════════════════════════════════════════════
-     * LOGIN
-     * POST /api/v1/auth/login
-     * ══════════════════════════════════════════════════════════ */
     public function login(LoginRequest $request): JsonResponse
     {
         $credentials = $request->validated();
-
-        /** @var User|null $user */
-        $user = User::query()->where('email', $credentials['email'])->first();
+        $user        = User::query()->where('email', $credentials['email'])->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
+            throw ValidationException::withMessages(['email' => ['The provided credentials are incorrect.']]);
         }
 
         $abilities = $user->tokenAbilities();
         $token     = $user->createToken($credentials['device_name'], $abilities)->plainTextToken;
 
         return response()->json([
-            'token'      => $token,
-            'token_type' => 'Bearer',
-            'abilities'  => $abilities,
-            'user'       => UserResource::make($user),
+            'token'          => $token,
+            'token_type'     => 'Bearer',
+            'abilities'      => $abilities,
+            'email_verified' => $user->hasVerifiedEmail(),
+            'user'           => UserResource::make($user),
         ]);
     }
 
-    /* ══════════════════════════════════════════════════════════
-     * ME
-     * GET /api/v1/auth/me
-     * ══════════════════════════════════════════════════════════ */
     public function me(Request $request): UserResource
     {
         return UserResource::make($request->user());
     }
 
-    /* ══════════════════════════════════════════════════════════
-     * LOGOUT (current token only)
-     * POST /api/v1/auth/logout
-     * ══════════════════════════════════════════════════════════ */
+    public function verifyEmail(Request $request, string $id, string $hash): JsonResponse
+    {
+        if (! $request->hasValidSignature()) {
+            return response()->json(['message' => 'The verification link is invalid or has expired.'], 422);
+        }
+
+        $user = User::find($id);
+        if (! $user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
+            return response()->json(['message' => 'The verification link is invalid.'], 422);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email address is already verified.', 'user' => UserResource::make($user)]);
+        }
+
+        $user->markEmailAsVerified();
+
+        return response()->json(['message' => 'Email address verified successfully.', 'user' => UserResource::make($user)]);
+    }
+
+    public function resendVerification(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email address is already verified.']);
+        }
+
+        Mail::to($user->email, $user->name)->queue(new VerifyEmailMail($user));
+
+        return response()->json(['message' => 'Verification email has been resent.']);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         $request->user()?->currentAccessToken()?->delete();
         PersonalAccessToken::findToken($request->bearerToken())?->delete();
-
         return response()->json(['message' => 'Logged out successfully.']);
     }
 
-    /* ══════════════════════════════════════════════════════════
-     * LOGOUT ALL (revoke every token for this user)
-     * POST /api/v1/auth/logout-all
-     * ══════════════════════════════════════════════════════════ */
     public function logoutAll(Request $request): JsonResponse
     {
         $request->user()?->tokens()->delete();
-
         return response()->json(['message' => 'All tokens were revoked successfully.']);
     }
 
-    /* ══════════════════════════════════════════════════════════
-     * FORGOT PASSWORD
-     * POST /api/v1/auth/forgot-password
-     *
-     * Sends a password reset link to the given email address.
-     * Uses Laravel's built-in Password broker which hashes the
-     * token and stores it in password_reset_tokens (already
-     * created by the users migration).
-     *
-     * Always returns 200 regardless of whether the email exists
-     * to avoid user enumeration.
-     * ══════════════════════════════════════════════════════════ */
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
-
-        // Both RESET_LINK_SENT and INVALID_USER return 200
-        // so callers cannot enumerate registered emails
-        return response()->json([
-            'message' => __($status),
-        ]);
+        $status = Password::sendResetLink($request->only('email'));
+        return response()->json(['message' => __($status)]);
     }
 
-    /* ══════════════════════════════════════════════════════════
-     * RESET PASSWORD
-     * POST /api/v1/auth/reset-password
-     *
-     * Validates the token, resets the password, fires the
-     * PasswordReset event (invalidates all existing tokens via
-     * the default listener), and issues a fresh Sanctum token.
-     * ══════════════════════════════════════════════════════════ */
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user, string $password) {
-                $user->forceFill([
-                    'password'       => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
-
-                // Revoke all existing Sanctum tokens on password reset
+                $user->forceFill(['password' => Hash::make($password), 'remember_token' => Str::random(60)])->save();
                 $user->tokens()->delete();
-
                 event(new PasswordReset($user));
             }
         );
 
         if ($status !== Password::PASSWORD_RESET) {
-            throw ValidationException::withMessages([
-                'email' => [__($status)],
-            ]);
+            throw ValidationException::withMessages(['email' => [__($status)]]);
         }
 
-        return response()->json([
-            'message' => 'Password has been reset. Please log in with your new password.',
-        ]);
+        return response()->json(['message' => 'Password has been reset. Please log in with your new password.']);
     }
 }
