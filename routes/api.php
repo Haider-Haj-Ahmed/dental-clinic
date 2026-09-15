@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AppointmentTypeController;
 use App\Http\Controllers\Api\AiAnalysisController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\Api\CommunicationLogController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EncounterController;
@@ -55,6 +56,9 @@ Route::prefix('v1')->group(function () {
         Route::get('email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
             ->middleware('signed')
             ->name('api.auth.email.verify');
+
+        // 2FA challenge — public, called after login when requires_2fa: true
+        Route::post('2fa/challenge', [AuthController::class, 'twoFactorChallenge']);
     });
 
     /*
@@ -73,6 +77,15 @@ Route::prefix('v1')->group(function () {
             // Resend verification — requires auth token, throttled to 1/min
             Route::post('email/resend', [AuthController::class, 'resendVerification'])
                 ->middleware('throttle:1,1');
+
+            // 2FA management — requires verified email
+            Route::middleware('verified')->group(function () {
+                Route::post('2fa/enable',                    [TwoFactorController::class, 'enable']);
+                Route::post('2fa/confirm',                   [TwoFactorController::class, 'confirm']);
+                Route::post('2fa/disable',                   [TwoFactorController::class, 'disable']);
+                Route::get('2fa/recovery-codes',             [TwoFactorController::class, 'recoveryCodes']);
+                Route::post('2fa/recovery-codes/regenerate', [TwoFactorController::class, 'regenerateRecoveryCodes']);
+            });
         });
 
         /*── Staff & config (owner only — Gate::before enforces) ──*/
