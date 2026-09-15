@@ -70,6 +70,43 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Appointment::class, 'created_by');
     }
 
+    public function passwordHistories(): HasMany
+    {
+        return $this->hasMany(PasswordHistory::class)->latest('created_at');
+    }
+
+    /**
+     * Check if a plain-text password matches any of the last N stored hashes.
+     */
+    public function passwordUsedBefore(string $plainPassword, int $limit = 5): bool
+    {
+        return $this->passwordHistories()
+            ->limit($limit)
+            ->get()
+            ->contains(fn ($history) => Hash::check($plainPassword, $history->password));
+    }
+
+    /**
+     * Store the current password in history, keeping only the last $keep entries.
+     */
+    public function recordPasswordHistory(int $keep = 5): void
+    {
+        PasswordHistory::create([
+            'user_id'  => $this->id,
+            'password' => $this->password,   // already hashed
+        ]);
+
+        // Prune old entries beyond the limit
+        $oldest = $this->passwordHistories()
+            ->skip($keep)
+            ->take(PHP_INT_MAX)
+            ->pluck('id');
+
+        if ($oldest->isNotEmpty()) {
+            PasswordHistory::whereIn('id', $oldest)->delete();
+        }
+    }
+
     /* ── Role helpers ────────────────────────────────────────── */
 
     public function isOwner(): bool        { return $this->role === self::ROLE_OWNER; }
