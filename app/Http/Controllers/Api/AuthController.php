@@ -315,6 +315,16 @@ class AuthController extends Controller
      * ══════════════════════════════════════════════════════════ */
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
+        // Pre-validate password history before handing to Password::reset
+        // We need the user to check history, so look them up first
+        $user = User::where('email', $request->input('email'))->first();
+
+        if ($user && $user->passwordUsedBefore($request->input('password'))) {
+            throw ValidationException::withMessages([
+                'password' => ['You have used this password recently. Please choose a different password.'],
+            ]);
+        }
+
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user, string $password) {
@@ -322,6 +332,9 @@ class AuthController extends Controller
                     'password'       => Hash::make($password),
                     'remember_token' => Str::random(60),
                 ])->save();
+
+                // Record in history after saving
+                $user->recordPasswordHistory();
 
                 // Revoke all tokens on password reset — forces re-login
                 $user->tokens()->delete();
@@ -336,6 +349,57 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Password has been reset. Please log in with your new password.',
+        ]);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+     * CHANGE PASSWORD (authenticated)
+     * POST /api/v1/auth/change-password
+     *
+     * Allows an authenticated user to change their own password
+     * without going through the forgot-password flow.
+     * Requires current password confirmation.
+     * Enforces password history (last 5 passwords rejected).
+     * Revokes all OTHER tokens — current session stays active.
+     * ══════════════════════════════════════════════════════════ */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'password'         => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()],
+        ]);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        // Verify current password
+        if (! Hash::check($request->input('current_password'), $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The current password is incorrect.'],
+            ]);
+        }
+
+        // Reject if new password matches any of last 5
+        if ($user->passwordUsedBefore($request->input('password'))) {
+            throw ValidationException::withMessages([
+                'password' => ['You have used this password recently. Please choose a different password.'],
+            ]);
+        }
+
+        $user->forceFill([
+            'password'       => Hash::make($request->input('password')),
+            'remember_token' => Str::random(60),
+        ])->save();
+
+        // Record in history
+        $user->recordPasswordHistory();
+
+        // Revoke all OTHER tokens — current stays valid so the user is not logged out
+        $currentTokenId = $user->currentAccessToken()->id;
+        $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+
+        return response()->json([
+            'message' => 'Password changed successfully. All other sessions have been revoked.',
         ]);
     }
 
