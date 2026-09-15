@@ -338,4 +338,62 @@ class AuthController extends Controller
             'message' => 'Password has been reset. Please log in with your new password.',
         ]);
     }
+
+    /* ══════════════════════════════════════════════════════════
+     * LIST TOKENS (active sessions)
+     * GET /api/v1/auth/tokens
+     *
+     * Returns all active Sanctum tokens for the authenticated
+     * user. Excludes the secret token value — only metadata.
+     * Useful for showing the user their active devices and
+     * allowing them to revoke specific ones.
+     * ══════════════════════════════════════════════════════════ */
+    public function tokens(Request $request): JsonResponse
+    {
+        $tokens = $request->user()
+            ->tokens()
+            ->orderByDesc('last_used_at')
+            ->get()
+            ->map(fn ($token) => [
+                'id'           => $token->id,
+                'name'         => $token->name,
+                'abilities'    => $token->abilities,
+                'last_used_at' => $token->last_used_at?->toIso8601String(),
+                'created_at'   => $token->created_at->toIso8601String(),
+                'expires_at'   => $token->expires_at?->toIso8601String(),
+                'is_current'   => $token->id === $request->user()->currentAccessToken()->id,
+            ]);
+
+        return response()->json([
+            'data'  => $tokens,
+            'total' => $tokens->count(),
+        ]);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+     * REVOKE SPECIFIC TOKEN
+     * DELETE /api/v1/auth/tokens/{tokenId}
+     *
+     * Revokes any single token belonging to the authenticated
+     * user by its ID. A user can revoke any of their own tokens
+     * including the current one (equivalent to logout).
+     * They cannot revoke another user's tokens.
+     * ══════════════════════════════════════════════════════════ */
+    public function revokeToken(Request $request, int $tokenId): JsonResponse
+    {
+        $deleted = $request->user()
+            ->tokens()
+            ->where('id', $tokenId)
+            ->delete();
+
+        if (! $deleted) {
+            return response()->json([
+                'message' => 'Token not found or does not belong to your account.',
+            ], 404);
+        }
+
+        return response()->json([
+            'message' => 'Token revoked successfully.',
+        ]);
+    }
 }
