@@ -74,6 +74,10 @@ Route::prefix('v1')->group(function () {
             Route::post('logout',           [AuthController::class, 'logout']);
             Route::post('logout-all',       [AuthController::class, 'logoutAll']);
 
+            // Active token (session) management
+            Route::get('tokens',              [AuthController::class, 'tokens']);
+            Route::delete('tokens/{tokenId}', [AuthController::class, 'revokeToken']);
+
             // Resend verification — requires auth token, throttled to 1/min
             Route::post('email/resend', [AuthController::class, 'resendVerification'])
                 ->middleware('throttle:1,1');
