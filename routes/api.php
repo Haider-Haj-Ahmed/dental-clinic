@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AppointmentTypeController;
 use App\Http\Controllers\Api\AiAnalysisController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\Api\CommunicationLogController;
 use App\Http\Controllers\Api\DashboardController;
@@ -274,6 +275,15 @@ Route::prefix('v1')->group(function () {
             Route::get('collections',        [ReportController::class, 'collections']);
             Route::get('recall-performance', [ReportController::class, 'recallPerformance']);
             Route::get('inventory',          [ReportController::class, 'inventory']);
+        });
+
+        /*── In-app notifications ──────────────────────────────────*/
+        Route::prefix('notifications')->controller(NotificationController::class)->group(function () {
+            Route::get('/',               'index');
+            Route::post('read-all',       'markAllRead');
+            Route::delete('read',         'destroyRead');
+            Route::post('{id}/read',      'markRead');
+            Route::delete('{id}',         'destroy');
         });
 
         /*── Audit logs (owner only — policy-enforced) ──────────────*/
