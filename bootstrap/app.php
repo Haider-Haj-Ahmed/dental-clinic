@@ -86,6 +86,9 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
     })
+    ->withEvents(discover: [
+        __DIR__.'/../app/Listeners',
+    ])
     ->booted(function () {
         RateLimiter::for('api', function (Request $request) {
             $user = $request->user();
