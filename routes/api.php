@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\AiAnalysisController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClinicSettingController;
+use App\Http\Controllers\Api\ClinicClosureController;
+use App\Http\Controllers\Api\WorkingHourController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\Api\CommunicationLogController;
@@ -100,6 +102,15 @@ Route::prefix('v1')->group(function () {
         /*── Clinic settings (owner only) ─────────────────────────*/
         Route::get('settings',   [ClinicSettingController::class, 'show']);
         Route::patch('settings', [ClinicSettingController::class, 'update']);
+
+        /*── Working hours (read: all auth | write: owner) ────────*/
+        Route::get('working-hours', [WorkingHourController::class, 'index']);
+        Route::put('working-hours', [WorkingHourController::class, 'update']);
+
+        /*── Clinic closures (read: all auth | write: owner) ───────*/
+        Route::get('closures',      [ClinicClosureController::class, 'index']);
+        Route::post('closures',     [ClinicClosureController::class, 'store']);
+        Route::delete('closures/{closure}', [ClinicClosureController::class, 'destroy']);
 
         /*── Staff & config (owner only — Gate::before enforces) ──*/
         Route::apiResource('users',             UserController::class);
