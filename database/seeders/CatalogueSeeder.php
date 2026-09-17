@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\AppointmentType;
 use App\Models\ClinicSetting;
+use App\Models\WorkingHour;
 use App\Models\Operatory;
 use Illuminate\Database\Seeder;
 
@@ -74,6 +75,25 @@ class CatalogueSeeder extends Seeder
             AppointmentType::query()->firstOrCreate(
                 ['name' => $data['name']],
                 $data
+            );
+        }
+    }
+
+        // ── Working hours (Sun–Sat, clinic open Sat–Thu) ───────────────
+        $defaultHours = [
+            0 => ['is_closed' => true,  'open_time' => null,    'close_time' => null],    // Sunday
+            1 => ['is_closed' => false, 'open_time' => '09:00', 'close_time' => '18:00'], // Monday
+            2 => ['is_closed' => false, 'open_time' => '09:00', 'close_time' => '18:00'], // Tuesday
+            3 => ['is_closed' => false, 'open_time' => '09:00', 'close_time' => '18:00'], // Wednesday
+            4 => ['is_closed' => false, 'open_time' => '09:00', 'close_time' => '18:00'], // Thursday
+            5 => ['is_closed' => false, 'open_time' => '09:00', 'close_time' => '14:00'], // Friday (half day)
+            6 => ['is_closed' => false, 'open_time' => '09:00', 'close_time' => '18:00'], // Saturday
+        ];
+
+        foreach ($defaultHours as $day => $hours) {
+            WorkingHour::updateOrCreate(
+                ['day_of_week' => $day],
+                $hours
             );
         }
     }
