@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\AppointmentType;
+use App\Models\ClinicSetting;
 use App\Models\Operatory;
 use Illuminate\Database\Seeder;
 
@@ -10,6 +11,30 @@ class CatalogueSeeder extends Seeder
 {
     public function run(): void
     {
+        // ── Clinic settings (singleton — one row only) ─────────────────
+        ClinicSetting::firstOrCreate([], [
+            'clinic_name'               => env('APP_CLINIC_NAME', 'Crystalline Dental'),
+            'clinic_email'              => env('MAIL_FROM_ADDRESS'),
+            'timezone'                  => env('APP_TIMEZONE', 'Asia/Damascus'),
+            'currency_code'             => 'SYP',
+            'currency_symbol'           => 'SYP',
+            'language'                  => 'en',
+            'primary_color'             => '#4fdbcc',
+            'tax_name'                  => 'VAT',
+            'tax_rate'                  => 0,
+            'invoice_prefix'            => 'INV-',
+            'invoice_starting_number'   => 1,
+            'appointment_slot_minutes'  => 15,
+            'cancellation_policy_hours' => 24,
+            'reminder_first_hours'      => 24,
+            'reminder_second_hours'     => 2,
+            'reminder_email_enabled'    => true,
+            'reminder_sms_enabled'      => false,
+            'reminder_whatsapp_enabled' => false,
+            'require_2fa'               => false,
+            'session_timeout_minutes'   => 480,
+        ]);
+
         // ── Operatories ────────────────────────────────────────────
         $operatories = [
             ['name' => 'Chair 1',    'color' => '#6366f1', 'is_active' => true],
