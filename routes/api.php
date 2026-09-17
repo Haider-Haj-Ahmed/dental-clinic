@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AppointmentTypeController;
 use App\Http\Controllers\Api\AiAnalysisController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ClinicSettingController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\Api\CommunicationLogController;
@@ -95,6 +96,10 @@ Route::prefix('v1')->group(function () {
                 Route::post('2fa/recovery-codes/regenerate', [TwoFactorController::class, 'regenerateRecoveryCodes']);
             });
         });
+
+        /*── Clinic settings (owner only) ─────────────────────────*/
+        Route::get('settings',   [ClinicSettingController::class, 'show']);
+        Route::patch('settings', [ClinicSettingController::class, 'update']);
 
         /*── Staff & config (owner only — Gate::before enforces) ──*/
         Route::apiResource('users',             UserController::class);
