@@ -206,6 +206,7 @@ Route::prefix('v1')->group(function () {
 
         /*── Billing ────────────────────────────────────────────────*/
         Route::middleware('token.ability:billing:read')->group(function () {
+            Route::get('invoices/{invoice}/pdf',      [InvoiceController::class, 'pdf']);
             Route::apiResource('invoices',      InvoiceController::class)->only(['index', 'show']);
             Route::apiResource('invoices/{invoice}/items', InvoiceItemController::class)->only(['index'])->parameter('items', 'item');
             Route::apiResource('payments',      PaymentController::class)->only(['index', 'show']);
@@ -247,6 +248,7 @@ Route::prefix('v1')->group(function () {
             Route::get('patients/{patient}/odontogram',             [OdontogramController::class, 'patientOdontogram']);
             Route::apiResource('perio-exams',     PerioExamController::class)->only(['index', 'show']);
             Route::apiResource('treatment-plans', TreatmentPlanController::class)->only(['index', 'show']);
+            Route::get('prescriptions/{prescription}/pdf', [PrescriptionController::class, 'pdf']);
             Route::apiResource('prescriptions',   PrescriptionController::class)->only(['index', 'show']);
         });
 
