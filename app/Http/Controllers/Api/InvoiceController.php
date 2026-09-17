@@ -12,6 +12,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\ClinicSetting;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceController extends Controller
@@ -148,5 +150,33 @@ class InvoiceController extends Controller
                 'per_page'     => $invoices->perPage(),
             ],
         ]);
+    }
+
+    /**
+     * Generate and stream invoice as PDF.
+     * GET /api/v1/invoices/{invoice}/pdf
+     */
+    public function pdf(Invoice $invoice): \Illuminate\Http\Response
+    {
+        $this->authorize('view', $invoice);
+
+        $invoice->load(['patient', 'provider', 'items', 'payments', 'finalizedBy']);
+
+        $settings   = ClinicSetting::instance();
+        $amountPaid = $invoice->payments->sum('amount');
+
+        $pdf = Pdf::loadView('pdf.invoice', compact('invoice', 'settings', 'amountPaid'))
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont'  => 'DejaVu Sans',
+                'isRemoteEnabled' => false,
+                'isHtml5ParserEnabled' => true,
+            ]);
+
+        $filename = strtolower(str_replace(' ', '-', $settings->invoice_prefix))
+                  . str_pad($invoice->id, 5, '0', STR_PAD_LEFT)
+                  . '.pdf';
+
+        return $pdf->stream($filename);
     }
 }
