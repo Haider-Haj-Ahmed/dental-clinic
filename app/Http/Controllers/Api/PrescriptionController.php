@@ -10,6 +10,8 @@ use App\Models\Prescription;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\ClinicSetting;
 use Illuminate\Support\Facades\DB;
 
 class PrescriptionController extends Controller
@@ -82,5 +84,36 @@ class PrescriptionController extends Controller
         $prescription->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Generate and stream prescription as PDF.
+     * GET /api/v1/prescriptions/{prescription}/pdf
+     */
+    public function pdf(Prescription $prescription): \Illuminate\Http\Response
+    {
+        $this->authorize('view', $prescription);
+
+        $prescription->load(['patient', 'provider', 'items', 'encounter']);
+
+        $settings = ClinicSetting::instance();
+
+        $pdf = Pdf::loadView('pdf.prescription', compact('prescription', 'settings'))
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont'  => 'DejaVu Sans',
+                'isRemoteEnabled' => false,
+                'isHtml5ParserEnabled' => true,
+            ]);
+
+        // Mark as printed
+        $prescription->update([
+            'is_printed' => true,
+            'printed_at' => now(),
+        ]);
+
+        $filename = 'rx-' . str_pad($prescription->id, 5, '0', STR_PAD_LEFT) . '.pdf';
+
+        return $pdf->stream($filename);
     }
 }
