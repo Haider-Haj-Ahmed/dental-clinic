@@ -6,11 +6,19 @@ use App\Events\AiResultReady;
 use App\Models\User;
 use App\Notifications\InAppNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use App\Services\WebhookDispatcher;
 
 class NotifyOnAiResultReady implements ShouldQueue
 {
     public function handle(AiResultReady $event): void
     {
+        app(WebhookDispatcher::class)->dispatch('ai.result_ready', [
+            'result_id'     => $event->result->id,
+            'analysis_type' => $event->result->analysis_type,
+            'patient_id'    => $event->result->patient_id,
+            'status'        => $event->result->status,
+        ]);
+
         $result      = $event->result;
         $patientName = $result->patient->first_name . ' ' . $result->patient->last_name;
         $typeLabel   = match ($result->analysis_type) {
