@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClinicSettingController;
 use App\Http\Controllers\Api\ClinicClosureController;
+use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Api\WorkingHourController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\TwoFactorController;
@@ -302,6 +303,17 @@ Route::prefix('v1')->group(function () {
             Route::delete('read',         'destroyRead');
             Route::post('{id}/read',      'markRead');
             Route::delete('{id}',         'destroy');
+        });
+
+        /*── Webhooks (owner only) ──────────────────────────────────*/
+        Route::prefix('webhooks')->controller(WebhookController::class)->group(function () {
+            Route::get('/',                        'index');
+            Route::post('/',                       'store');
+            Route::get('/{webhook}',               'show');
+            Route::patch('/{webhook}/toggle',      'toggle');
+            Route::delete('/{webhook}',            'destroy');
+            Route::get('/{webhook}/deliveries',    'deliveries');
+            Route::post('/{webhook}/ping',         'ping');
         });
 
         /*── Audit logs (owner only — policy-enforced) ──────────────*/
