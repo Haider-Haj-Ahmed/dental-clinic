@@ -6,11 +6,20 @@ use App\Events\AppointmentBooked;
 use App\Models\User;
 use App\Notifications\InAppNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use App\Services\WebhookDispatcher;
 
 class NotifyOnAppointmentBooked implements ShouldQueue
 {
     public function handle(AppointmentBooked $event): void
     {
+        app(WebhookDispatcher::class)->dispatch('appointment.booked', [
+            'appointment_id' => $event->appointment->id,
+            'patient_name'   => $event->appointment->patient->first_name . ' ' . $event->appointment->patient->last_name,
+            'provider_id'    => $event->appointment->provider_id,
+            'start_at'       => $event->appointment->start_at->toIso8601String(),
+            'status'         => $event->appointment->status,
+        ]);
+
         $appointment = $event->appointment;
         $patientName = $appointment->patient->first_name . ' ' . $appointment->patient->last_name;
         $dateTime    = $appointment->start_at->format('D d M \a\t H:i');
