@@ -6,11 +6,19 @@ use App\Events\LowStockAlert;
 use App\Models\User;
 use App\Notifications\InAppNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use App\Services\WebhookDispatcher;
 
 class NotifyOnLowStock implements ShouldQueue
 {
     public function handle(LowStockAlert $event): void
     {
+        app(WebhookDispatcher::class)->dispatch('inventory.low_stock', [
+            'item_id'       => $event->item->id,
+            'item_name'     => $event->item->name,
+            'current_stock' => $event->item->current_stock,
+            'reorder_level' => $event->item->reorder_level,
+        ]);
+
         $item  = $event->item;
         $owner = User::where('role', User::ROLE_OWNER)->first();
 
