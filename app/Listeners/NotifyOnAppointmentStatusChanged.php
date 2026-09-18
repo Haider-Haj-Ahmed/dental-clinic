@@ -6,11 +6,19 @@ use App\Events\AppointmentStatusChanged;
 use App\Models\User;
 use App\Notifications\InAppNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use App\Services\WebhookDispatcher;
 
 class NotifyOnAppointmentStatusChanged implements ShouldQueue
 {
     public function handle(AppointmentStatusChanged $event): void
     {
+        app(WebhookDispatcher::class)->dispatch('appointment.status_changed', [
+            'appointment_id'  => $event->appointment->id,
+            'patient_name'    => $event->appointment->patient->first_name . ' ' . $event->appointment->patient->last_name,
+            'previous_status' => $event->previousStatus,
+            'new_status'      => $event->appointment->status,
+        ]);
+
         $appointment  = $event->appointment;
         $patientName  = $appointment->patient->first_name . ' ' . $appointment->patient->last_name;
         $statusLabel  = ucfirst($appointment->status);
