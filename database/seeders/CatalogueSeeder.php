@@ -77,7 +77,6 @@ class CatalogueSeeder extends Seeder
                 $data
             );
         }
-    }
 
         // ── Working hours (Sun–Sat, clinic open Sat–Thu) ───────────────
         $defaultHours = [
