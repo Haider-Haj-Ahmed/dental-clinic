@@ -73,7 +73,773 @@ tags:
   - name: Dashboard & Reports
   - name: Audit Logs
 
+  - name: Two-Factor Authentication
+    description: TOTP 2FA setup, confirmation, and recovery code management
+  - name: Notifications
+    description: In-app notification management (database channel)
+  - name: Clinic Settings
+    description: Clinic configuration — identity, locale, billing, reminders, security
+  - name: Working Hours
+    description: Clinic working hours and holiday/closure management
+  - name: Webhooks
+    description: Webhook registration, delivery history, and test pings
 paths:
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new staff account
+      description: |
+        First call ever (no users in DB) creates owner regardless of role sent.
+        Subsequent calls require an authenticated owner token.
+        Fires email verification on success.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, password_confirmation, role, device_name]
+              properties:
+                name:                  { type: string, example: "Dr. Sarah Mansour" }
+                email:                 { type: string, format: email }
+                password:              { type: string, minLength: 8 }
+                password_confirmation: { type: string }
+                role:                  { type: string, enum: [owner, provider, receptionist, assistant] }
+                device_name:           { type: string, example: "MacBook Pro" }
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/TokenResponse'
+                  - type: object
+                    properties:
+                      email_verified: { type: boolean, example: false }
+                      two_factor:     { type: boolean, example: false }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request a password reset link
+      description: Always returns 200 to prevent email enumeration.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: Reset link sent (or silently ignored if email not found)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password using token from email
+      description: Validates token, resets password, revokes all Sanctum tokens, enforces last-5 password history.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, email, password, password_confirmation]
+              properties:
+                token:                 { type: string }
+                email:                 { type: string, format: email }
+                password:              { type: string, minLength: 8 }
+                password_confirmation: { type: string }
+      responses:
+        '200':
+          description: Password reset
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /auth/email/verify/{id}/{hash}:
+    get:
+      tags: [Auth]
+      summary: Verify email address via signed URL
+      description: Signed URL from verification email. Expires in 60 minutes. Idempotent.
+      security: []
+      parameters:
+        - { name: id,   in: path, required: true, schema: { type: integer } }
+        - { name: hash, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:    { type: string }
+                  two_factor: { type: boolean }
+                  user:       { $ref: '#/components/schemas/User' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /auth/email/resend:
+    post:
+      tags: [Auth]
+      summary: Resend verification email
+      description: Requires authenticated token. Throttled to 1 request per minute.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Verification email queued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/2fa/challenge:
+    post:
+      tags: [Auth, Two-Factor Authentication]
+      summary: Complete login when 2FA is required
+      description: |
+        Called after login returns `requires_2fa: true`. Submit the
+        `two_factor_token` from login along with either a 6-digit TOTP `code`
+        or an 8-character `recovery_code`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [two_factor_token, device_name]
+              properties:
+                two_factor_token: { type: string }
+                code:             { type: string, pattern: '^\d{6}$' }
+                recovery_code:    { type: string }
+                device_name:      { type: string }
+      responses:
+        '200':
+          description: 2FA verified — full Sanctum token issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change password while authenticated
+      description: |
+        Requires current password. Enforces last-5 password history.
+        Revokes all OTHER tokens — current session stays active.
+      security:
+        - sanctum: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, password, password_confirmation]
+              properties:
+                current_password:      { type: string }
+                password:              { type: string, minLength: 8 }
+                password_confirmation: { type: string }
+      responses:
+        '200':
+          description: Password changed, other sessions revoked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /auth/tokens:
+    get:
+      tags: [Auth]
+      summary: List active tokens (sessions)
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Token list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:  { type: array, items: { $ref: '#/components/schemas/TokenInfo' } }
+                  total: { type: integer }
+
+  /auth/tokens/{tokenId}:
+    delete:
+      tags: [Auth]
+      summary: Revoke a specific token
+      security:
+        - sanctum: []
+      parameters:
+        - { name: tokenId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Token revoked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /auth/2fa/enable:
+    post:
+      tags: [Two-Factor Authentication]
+      summary: Initiate 2FA setup
+      description: Generates TOTP secret + QR code URI. 2FA not active until confirmed. Requires verified email.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Secret and QR code URI
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:     { type: string }
+                  secret:      { type: string, description: "Base32 secret for manual entry" }
+                  qr_code_uri: { type: string, description: "otpauth:// URI — render as QR code image" }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /auth/2fa/confirm:
+    post:
+      tags: [Two-Factor Authentication]
+      summary: Confirm 2FA with first OTP
+      description: Activates 2FA and returns 8 recovery codes. Codes shown ONCE — save them securely.
+      security:
+        - sanctum: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: '^\d{6}$' }
+      responses:
+        '200':
+          description: 2FA activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:        { type: string }
+                  recovery_codes: { type: array, items: { type: string } }
+                  warning:        { type: string }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /auth/2fa/disable:
+    post:
+      tags: [Two-Factor Authentication]
+      summary: Disable 2FA
+      description: Requires valid OTP. Sends security alert email.
+      security:
+        - sanctum: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: '^\d{6}$' }
+      responses:
+        '200':
+          description: 2FA disabled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /auth/2fa/recovery-codes:
+    get:
+      tags: [Two-Factor Authentication]
+      summary: Get remaining recovery code count
+      description: Returns count only — plain-text codes not retrievable after setup.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Recovery code count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  remaining_codes: { type: integer }
+                  warning:         { type: string, nullable: true }
+
+  /auth/2fa/recovery-codes/regenerate:
+    post:
+      tags: [Two-Factor Authentication]
+      summary: Regenerate recovery codes
+      description: Invalidates existing codes, generates 8 new ones. Requires valid OTP.
+      security:
+        - sanctum: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: '^\d{6}$' }
+      responses:
+        '200':
+          description: New recovery codes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:        { type: string }
+                  recovery_codes: { type: array, items: { type: string } }
+                  warning:        { type: string }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List in-app notifications
+      description: Unread first, then read. Paginated 20 per page. Includes unread count.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:         { type: array, items: { $ref: '#/components/schemas/Notification' } }
+                  unread_count: { type: integer }
+                  total:        { type: integer }
+                  per_page:     { type: integer }
+                  current_page: { type: integer }
+                  last_page:    { type: integer }
+
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: All marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:      { type: string }
+                  unread_count: { type: integer, example: 0 }
+
+  /notifications/read:
+    delete:
+      tags: [Notifications]
+      summary: Delete all read notifications
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Read notifications deleted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+
+  /notifications/{id}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark a notification as read
+      security:
+        - sanctum: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:      { type: string }
+                  unread_count: { type: integer }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /notifications/{id}:
+    delete:
+      tags: [Notifications]
+      summary: Delete a notification
+      security:
+        - sanctum: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /settings:
+    get:
+      tags: [Clinic Settings]
+      summary: Get clinic settings
+      description: Owner only. Returns all settings grouped by category.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Clinic settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/ClinicSettings' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    patch:
+      tags: [Clinic Settings]
+      summary: Update clinic settings
+      description: Owner only. PATCH semantics — only sent fields updated.
+      security:
+        - sanctum: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClinicSettingsUpdate' }
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  data:    { $ref: '#/components/schemas/ClinicSettings' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /working-hours:
+    get:
+      tags: [Working Hours]
+      summary: Get clinic working hours
+      description: All 7 days. Available to all authenticated users.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Working hours
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/WorkingHour' } }
+    put:
+      tags: [Working Hours]
+      summary: Update working hours
+      description: Owner only. Can update a subset of days.
+      security:
+        - sanctum: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hours]
+              properties:
+                hours:
+                  type: array
+                  items: { $ref: '#/components/schemas/WorkingHourInput' }
+      responses:
+        '200':
+          description: Working hours updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  data:    { type: array, items: { $ref: '#/components/schemas/WorkingHour' } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /closures:
+    get:
+      tags: [Working Hours]
+      summary: List clinic closures
+      description: Upcoming closures. Optional `?from=Y-m-d&to=Y-m-d` filter.
+      security:
+        - sanctum: []
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to,   in: query, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Closure list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/ClinicClosure' } }
+    post:
+      tags: [Working Hours]
+      summary: Create a clinic closure
+      description: Owner only. Date must be unique and today or future.
+      security:
+        - sanctum: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClinicClosureInput' }
+      responses:
+        '201':
+          description: Closure created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  data:    { $ref: '#/components/schemas/ClinicClosure' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /closures/{closure}:
+    delete:
+      tags: [Working Hours]
+      summary: Delete a clinic closure
+      description: Owner only.
+      security:
+        - sanctum: []
+      parameters:
+        - { name: closure, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Closure deleted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /invoices/{id}/pdf:
+    get:
+      tags: [Billing]
+      summary: Download invoice as PDF
+      description: |
+        Streams A4 PDF with clinic letterhead, itemized services, totals,
+        payment history, and balance due. Requires `billing:read` ability.
+      security:
+        - sanctum: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: PDF stream
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /prescriptions/{id}/pdf:
+    get:
+      tags: [Clinical]
+      summary: Download prescription as PDF
+      description: |
+        Streams A4 prescription PDF. Marks `is_printed=true` and `printed_at=now()`.
+        Requires `clinical:read` ability.
+      security:
+        - sanctum: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: PDF stream
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /webhooks:
+    get:
+      tags: [Webhooks]
+      summary: List registered webhooks
+      description: Owner only. Includes delivery counts per webhook.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Webhook list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:             { type: array, items: { $ref: '#/components/schemas/Webhook' } }
+                  supported_events: { type: array, items: { type: string } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Webhooks]
+      summary: Register a new webhook
+      description: Owner only. Secret is auto-generated and returned ONCE. Store it securely.
+      security:
+        - sanctum: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebhookInput' }
+      responses:
+        '201':
+          description: Webhook created. Secret shown once.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Webhook'
+                      - type: object
+                        properties:
+                          secret: { type: string }
+                          note:   { type: string }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /webhooks/{webhook}:
+    get:
+      tags: [Webhooks]
+      summary: Get a webhook
+      security:
+        - sanctum: []
+      parameters:
+        - { name: webhook, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Webhook
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Webhook' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Webhooks]
+      summary: Delete a webhook
+      security:
+        - sanctum: []
+      parameters:
+        - { name: webhook, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /webhooks/{webhook}/toggle:
+    patch:
+      tags: [Webhooks]
+      summary: Toggle webhook active state
+      security:
+        - sanctum: []
+      parameters:
+        - { name: webhook, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Toggled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:   { type: string }
+                  is_active: { type: boolean }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /webhooks/{webhook}/deliveries:
+    get:
+      tags: [Webhooks]
+      summary: List webhook delivery history
+      description: Paginated 20 per page, newest first.
+      security:
+        - sanctum: []
+      parameters:
+        - { name: webhook, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Delivery history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:         { type: array, items: { $ref: '#/components/schemas/WebhookDelivery' } }
+                  total:        { type: integer }
+                  current_page: { type: integer }
+                  last_page:    { type: integer }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /webhooks/{webhook}/ping:
+    post:
+      tags: [Webhooks]
+      summary: Send a test ping to a webhook
+      description: Dispatches a test delivery. Returns delivery ID for tracking in `/deliveries`.
+      security:
+        - sanctum: []
+      parameters:
+        - { name: webhook, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Ping dispatched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:     { type: string }
+                  delivery_id: { type: integer }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /auth/login:
     post:
@@ -3886,6 +4652,216 @@ components:
                 type: object
 
   schemas:
+    TokenResponse:
+      type: object
+      properties:
+        token:          { type: string, description: "Sanctum plain-text token" }
+        token_type:     { type: string, example: "Bearer" }
+        abilities:      { type: array, items: { type: string } }
+        email_verified: { type: boolean }
+        two_factor:     { type: boolean }
+        user:           { $ref: '#/components/schemas/User' }
+
+    TokenInfo:
+      type: object
+      properties:
+        id:           { type: integer }
+        name:         { type: string, description: "Device name" }
+        abilities:    { type: array, items: { type: string } }
+        last_used_at: { type: string, format: date-time, nullable: true }
+        created_at:   { type: string, format: date-time }
+        expires_at:   { type: string, format: date-time, nullable: true }
+        is_current:   { type: boolean, description: "True if this is the token making the request" }
+
+    Notification:
+      type: object
+      properties:
+        id:         { type: string, format: uuid }
+        type:       { type: string, example: "appointment.booked" }
+        title:      { type: string }
+        body:       { type: string }
+        url:        { type: string, nullable: true }
+        data:       { type: object, additionalProperties: true }
+        read:       { type: boolean }
+        read_at:    { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    ClinicSettings:
+      type: object
+      properties:
+        identity:
+          type: object
+          properties:
+            clinic_name:      { type: string }
+            clinic_email:     { type: string, nullable: true }
+            clinic_phone:     { type: string, nullable: true }
+            clinic_address:   { type: string, nullable: true }
+            clinic_logo_path: { type: string, nullable: true }
+            website:          { type: string, nullable: true }
+        locale:
+          type: object
+          properties:
+            timezone:        { type: string, example: "Asia/Damascus" }
+            currency_code:   { type: string, example: "SYP" }
+            currency_symbol: { type: string, example: "SYP" }
+            date_format:     { type: string, example: "d M Y" }
+            time_format:     { type: string, example: "H:i" }
+            language:        { type: string, enum: [en, ar] }
+        branding:
+          type: object
+          properties:
+            primary_color: { type: string, example: "#4fdbcc" }
+        billing:
+          type: object
+          properties:
+            tax_name:                { type: string }
+            tax_rate:                { type: integer, minimum: 0, maximum: 100 }
+            invoice_prefix:          { type: string, example: "INV-" }
+            invoice_starting_number: { type: integer }
+        appointments:
+          type: object
+          properties:
+            appointment_slot_minutes:  { type: integer, enum: [10, 15, 20, 30, 45, 60] }
+            cancellation_policy_hours: { type: integer }
+        reminders:
+          type: object
+          properties:
+            first_hours:      { type: integer }
+            second_hours:     { type: integer }
+            sms_enabled:      { type: boolean }
+            email_enabled:    { type: boolean }
+            whatsapp_enabled: { type: boolean }
+        security:
+          type: object
+          properties:
+            require_2fa:             { type: boolean }
+            session_timeout_minutes: { type: integer }
+        updated_at: { type: string, format: date-time, nullable: true }
+
+    ClinicSettingsUpdate:
+      type: object
+      description: All fields optional — PATCH semantics
+      properties:
+        clinic_name:               { type: string }
+        clinic_email:              { type: string, format: email }
+        clinic_phone:              { type: string }
+        clinic_address:            { type: string }
+        website:                   { type: string, format: uri }
+        timezone:                  { type: string }
+        currency_code:             { type: string, minLength: 3, maxLength: 3 }
+        currency_symbol:           { type: string }
+        date_format:               { type: string }
+        time_format:               { type: string }
+        language:                  { type: string, enum: [en, ar] }
+        primary_color:             { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        tax_name:                  { type: string }
+        tax_rate:                  { type: integer, minimum: 0, maximum: 100 }
+        invoice_prefix:            { type: string }
+        invoice_starting_number:   { type: integer, minimum: 1 }
+        appointment_slot_minutes:  { type: integer, enum: [10, 15, 20, 30, 45, 60] }
+        cancellation_policy_hours: { type: integer }
+        reminder_first_hours:      { type: integer }
+        reminder_second_hours:     { type: integer }
+        reminder_sms_enabled:      { type: boolean }
+        reminder_email_enabled:    { type: boolean }
+        reminder_whatsapp_enabled: { type: boolean }
+        require_2fa:               { type: boolean }
+        session_timeout_minutes:   { type: integer, minimum: 15, maximum: 1440 }
+
+    WorkingHour:
+      type: object
+      properties:
+        day_of_week: { type: integer, minimum: 0, maximum: 6, description: "0=Sunday … 6=Saturday" }
+        day_name:    { type: string, example: "Monday" }
+        is_closed:   { type: boolean }
+        open_time:   { type: string, example: "09:00", nullable: true }
+        close_time:  { type: string, example: "18:00", nullable: true }
+
+    WorkingHourInput:
+      type: object
+      required: [day_of_week, is_closed]
+      properties:
+        day_of_week: { type: integer, minimum: 0, maximum: 6 }
+        is_closed:   { type: boolean }
+        open_time:   { type: string, example: "09:00", description: "Required when is_closed is false" }
+        close_time:  { type: string, example: "18:00", description: "Required when is_closed is false, must be after open_time" }
+
+    ClinicClosure:
+      type: object
+      properties:
+        id:         { type: integer }
+        date:       { type: string, format: date }
+        reason:     { type: string, nullable: true }
+        all_day:    { type: boolean }
+        start_time: { type: string, nullable: true, description: "Only when all_day is false" }
+        end_time:   { type: string, nullable: true, description: "Only when all_day is false" }
+        created_by: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    ClinicClosureInput:
+      type: object
+      required: [date]
+      properties:
+        date:       { type: string, format: date, description: "Must be today or future, unique per date" }
+        reason:     { type: string, nullable: true }
+        all_day:    { type: boolean, default: true }
+        start_time: { type: string, description: "Required when all_day is false" }
+        end_time:   { type: string, description: "Required when all_day is false, must be after start_time" }
+
+    Webhook:
+      type: object
+      properties:
+        id:                      { type: integer }
+        url:                     { type: string, format: uri }
+        events:                  { type: array, items: { type: string } }
+        description:             { type: string, nullable: true }
+        is_active:               { type: boolean }
+        last_triggered_at:       { type: string, format: date-time, nullable: true }
+        deliveries_count:        { type: integer, nullable: true }
+        failed_deliveries_count: { type: integer, nullable: true }
+        created_at:              { type: string, format: date-time }
+
+    WebhookInput:
+      type: object
+      required: [url, events]
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            enum:
+              - appointment.booked
+              - appointment.status_changed
+              - invoice.finalized
+              - payment.received
+              - patient.created
+              - ai.result_ready
+              - recall.overdue
+              - inventory.low_stock
+        description: { type: string, nullable: true }
+
+    WebhookDelivery:
+      type: object
+      properties:
+        id:               { type: integer }
+        event:            { type: string }
+        attempt:          { type: integer }
+        status:           { type: string, enum: [pending, success, failed] }
+        response_status:  { type: integer, nullable: true }
+        response_time_ms: { type: integer, nullable: true }
+        error:            { type: string, nullable: true }
+        delivered_at:     { type: string, format: date-time, nullable: true }
+        created_at:       { type: string, format: date-time }
+
+    MessageResponse:
+      type: object
+      properties:
+        message: { type: string }
+
 
     # ── Shared ────────────────────────────────────────────────────────────────
 
