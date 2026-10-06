@@ -14,6 +14,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\ClinicSetting;
+use App\Services\WebhookDispatcher;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceController extends Controller
@@ -97,7 +98,17 @@ class InvoiceController extends Controller
             'finalized_by' => $request->user()->id,
         ]);
 
-        return InvoiceResource::make($invoice->refresh()->load(['patient', 'provider', 'items']));
+        $invoice->refresh()->load(['patient', 'provider', 'items']);
+
+        app(WebhookDispatcher::class)->dispatch('invoice.finalized', [
+            'invoice_id'  => $invoice->id,
+            'patient_id'  => $invoice->patient_id,
+            'total'       => $invoice->total,
+            'currency'    => \App\Models\ClinicSetting::instance()->currency_code,
+            'finalized_at'=> now()->toIso8601String(),
+        ]);
+
+        return InvoiceResource::make($invoice);
     }
 
     /** POST /invoices/{invoice}/void */
