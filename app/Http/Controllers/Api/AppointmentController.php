@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Events\AppointmentBooked;
+use App\Events\AppointmentStatusChanged;
 use App\Http\Requests\StoreAppointmentRequest;
 use App\Http\Requests\UpdateAppointmentRequest;
 use App\Http\Resources\AppointmentResource;
@@ -70,7 +72,10 @@ class AppointmentController extends Controller
             return Appointment::query()->create($payload);
         });
 
-        return AppointmentResource::make($appointment->load(['patient', 'provider', 'creator']));
+        $appointment->load(['patient', 'provider', 'creator', 'appointmentType']);
+        event(new AppointmentBooked($appointment));
+
+        return AppointmentResource::make($appointment);
     }
 
     public function show(Appointment $appointment): AppointmentResource
@@ -87,6 +92,8 @@ class AppointmentController extends Controller
         $startAt    = $payload['start_at']    ?? $appointment->start_at;
         $endAt      = $payload['end_at']      ?? $appointment->end_at;
 
+        $previousStatus = $appointment->status;
+
         DB::transaction(function () use ($appointment, $payload, $providerId, $patientId, $startAt, $endAt) {
             $this->assertNoTimeConflict($providerId, $patientId, $startAt, $endAt, $appointment->id, lock: true);
 
@@ -96,6 +103,12 @@ class AppointmentController extends Controller
 
             $appointment->update($payload);
         });
+
+        // Fire status change event only when status actually changed
+        if (array_key_exists('status', $payload) && $payload['status'] !== $previousStatus) {
+            $appointment->load(['patient', 'provider', 'appointmentType']);
+            event(new AppointmentStatusChanged($appointment, $previousStatus));
+        }
 
         return AppointmentResource::make($appointment->refresh()->load(['patient', 'provider', 'creator']));
     }
