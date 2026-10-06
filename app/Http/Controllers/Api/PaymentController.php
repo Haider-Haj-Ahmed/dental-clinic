@@ -10,6 +10,7 @@ use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use App\Services\WebhookDispatcher;
 use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
@@ -64,11 +65,27 @@ class PaymentController extends Controller
             return $payment;
         });
 
+        app(WebhookDispatcher::class)->dispatch('payment.received', [
+            'payment_id'  => $payment->id,
+            'invoice_id'  => $payment->invoice_id,
+            'patient_id'  => $payment->patient_id,
+            'amount'      => $payment->amount,
+            'paid_at'     => $payment->paid_at,
+        ]);
+
         return PaymentResource::make($payment->load(['paymentMethod', 'recordedBy']));
     }
 
     public function show(Payment $payment): PaymentResource
     {
+        app(WebhookDispatcher::class)->dispatch('payment.received', [
+            'payment_id'  => $payment->id,
+            'invoice_id'  => $payment->invoice_id,
+            'patient_id'  => $payment->patient_id,
+            'amount'      => $payment->amount,
+            'paid_at'     => $payment->paid_at,
+        ]);
+
         return PaymentResource::make($payment->load(['paymentMethod', 'recordedBy']));
     }
 
