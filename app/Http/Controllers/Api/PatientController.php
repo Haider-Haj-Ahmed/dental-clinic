@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\WebhookDispatcher;
 use App\Http\Requests\StorePatientRequest;
 use App\Http\Requests\UpdatePatientRequest;
 use App\Http\Resources\PatientResource;
@@ -44,6 +45,16 @@ class PatientController extends Controller
     public function store(StorePatientRequest $request): PatientResource
     {
         $patient = Patient::query()->create($request->validated());
+
+        // Dispatch patient.created webhook
+        app(WebhookDispatcher::class)->dispatch('patient.created', [
+            'patient_id'  => $patient->id,
+            'first_name'  => $patient->first_name,
+            'last_name'   => $patient->last_name,
+            'email'       => $patient->email,
+            'phone'       => $patient->phone,
+            'created_at'  => $patient->created_at->toIso8601String(),
+        ]);
 
         return PatientResource::make($patient);
     }
