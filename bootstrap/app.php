@@ -25,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Append API version + request ID headers to every API response
+        $middleware->appendToGroup('api', \App\Http\Middleware\AddApiHeaders::class);
+
         $middleware->alias([
             'abilities'     => CheckAbilities::class,
             'ability'       => CheckForAnyAbility::class,
