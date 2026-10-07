@@ -13,6 +13,8 @@ use App\Models\PrescriptionItem;
 use App\Models\Recall;
 use App\Models\PatientMedicalDocument;
 use App\Events\AiResultReady;
+use App\Mail\AiResultPendingMail;
+use Illuminate\Support\Facades\Mail;
 use App\Services\AiService;
 use Illuminate\Support\Facades\DB;
 use App\Services\FileStorageService;
@@ -66,6 +68,12 @@ class AiAnalysisController extends Controller
         $result->load(['patient', 'requestedBy', 'reviewedBy']);
         event(new AiResultReady($result));
 
+        // Email the requesting provider
+        if ($result->requestedBy?->email) {
+            Mail::to($result->requestedBy->email, $result->requestedBy->name)
+                ->queue(new AiResultPendingMail($result));
+        }
+
         return AiAnalysisResultResource::make($result);
     }
 
@@ -96,6 +104,12 @@ class AiAnalysisController extends Controller
 
         $result->load(['patient', 'requestedBy', 'reviewedBy']);
         event(new AiResultReady($result));
+
+        // Email the requesting provider
+        if ($result->requestedBy?->email) {
+            Mail::to($result->requestedBy->email, $result->requestedBy->name)
+                ->queue(new AiResultPendingMail($result));
+        }
 
         return AiAnalysisResultResource::make($result);
     }
@@ -183,6 +197,12 @@ class AiAnalysisController extends Controller
 
         $result->load(['patient', 'requestedBy', 'reviewedBy']);
         event(new AiResultReady($result));
+
+        // Email the requesting provider
+        if ($result->requestedBy?->email) {
+            Mail::to($result->requestedBy->email, $result->requestedBy->name)
+                ->queue(new AiResultPendingMail($result));
+        }
 
         return AiAnalysisResultResource::make($result);
     }
@@ -288,6 +308,12 @@ class AiAnalysisController extends Controller
 
         $result->load(['patient', 'requestedBy', 'reviewedBy']);
         event(new AiResultReady($result));
+
+        // Email the requesting provider
+        if ($result->requestedBy?->email) {
+            Mail::to($result->requestedBy->email, $result->requestedBy->name)
+                ->queue(new AiResultPendingMail($result));
+        }
 
         return AiAnalysisResultResource::make($result);
     }
