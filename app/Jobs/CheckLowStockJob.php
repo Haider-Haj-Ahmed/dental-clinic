@@ -9,7 +9,10 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use App\Mail\LowStockAlertMail;
+use App\Models\User;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Scheduled: daily at 08:30.
@@ -37,6 +40,12 @@ class CheckLowStockJob implements ShouldQueue
 
         foreach ($items as $item) {
             event(new LowStockAlert($item));
+        }
+
+        // Send single email to owner listing all low stock items
+        $owner = User::where('role', User::ROLE_OWNER)->first();
+        if ($owner?->email) {
+            Mail::to($owner->email, $owner->name)->queue(new LowStockAlertMail($items));
         }
 
         Log::info("CheckLowStockJob: fired low stock alert for {$items->count()} item(s).");
