@@ -10,7 +10,9 @@ use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use App\Mail\PaymentReceiptMail;
 use App\Services\WebhookDispatcher;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
@@ -65,6 +67,13 @@ class PaymentController extends Controller
             return $payment;
         });
 
+        // Receipt email to patient
+        if ($payment->patient->email) {
+            $payment->load(['invoice.payments', 'invoice']);
+            Mail::to($payment->patient->email, $payment->patient->first_name)
+                ->queue(new PaymentReceiptMail($payment));
+        }
+
         app(WebhookDispatcher::class)->dispatch('payment.received', [
             'payment_id'  => $payment->id,
             'invoice_id'  => $payment->invoice_id,
@@ -78,6 +87,13 @@ class PaymentController extends Controller
 
     public function show(Payment $payment): PaymentResource
     {
+        // Receipt email to patient
+        if ($payment->patient->email) {
+            $payment->load(['invoice.payments', 'invoice']);
+            Mail::to($payment->patient->email, $payment->patient->first_name)
+                ->queue(new PaymentReceiptMail($payment));
+        }
+
         app(WebhookDispatcher::class)->dispatch('payment.received', [
             'payment_id'  => $payment->id,
             'invoice_id'  => $payment->invoice_id,
