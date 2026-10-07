@@ -9,7 +9,10 @@ use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\TwoFactorChallengeRequest;
 use App\Http\Resources\UserResource;
+use App\Mail\NewDeviceLoginMail;
+use App\Mail\PasswordChangedMail;
 use App\Mail\VerifyEmailMail;
+use App\Mail\WelcomeMail;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
@@ -59,6 +62,11 @@ class AuthController extends Controller
 
         // Fire Registered event → queues VerifyEmailMail
         event(new Registered($user));
+
+        // Welcome email — only when owner is creating a staff account (not first-user bootstrap)
+        if (! $isFirstUser) {
+            Mail::to($user->email, $user->name)->queue(new WelcomeMail($user, $data['password']));
+        }
 
         $abilities = $user->tokenAbilities();
         $token     = $user->createToken($data['device_name'], $abilities)->plainTextToken;
@@ -118,6 +126,11 @@ class AuthController extends Controller
 
         $abilities = $user->tokenAbilities();
         $token     = $user->createToken($credentials['device_name'], $abilities)->plainTextToken;
+
+        // New device login alert
+        Mail::to($user->email, $user->name)->queue(
+            new NewDeviceLoginMail($user, $credentials['device_name'], $request->ip() ?? 'unknown')
+        );
 
         return response()->json([
             'token'          => $token,
@@ -397,6 +410,11 @@ class AuthController extends Controller
         // Revoke all OTHER tokens — current stays valid so the user is not logged out
         $currentTokenId = $user->currentAccessToken()->id;
         $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+
+        // Security alert email
+        Mail::to($user->email, $user->name)->queue(
+            new PasswordChangedMail($user, $request->ip() ?? 'unknown')
+        );
 
         return response()->json([
             'message' => 'Password changed successfully. All other sessions have been revoked.',
