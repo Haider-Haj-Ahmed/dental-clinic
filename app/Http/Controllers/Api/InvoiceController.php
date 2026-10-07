@@ -14,7 +14,9 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\ClinicSetting;
+use App\Mail\InvoiceFinalizedMail;
 use App\Services\WebhookDispatcher;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceController extends Controller
@@ -99,6 +101,12 @@ class InvoiceController extends Controller
         ]);
 
         $invoice->refresh()->load(['patient', 'provider', 'items']);
+
+        // Invoice email to patient with PDF attachment
+        if ($invoice->patient->email) {
+            Mail::to($invoice->patient->email, $invoice->patient->first_name)
+                ->queue(new InvoiceFinalizedMail($invoice));
+        }
 
         app(WebhookDispatcher::class)->dispatch('invoice.finalized', [
             'invoice_id'  => $invoice->id,
