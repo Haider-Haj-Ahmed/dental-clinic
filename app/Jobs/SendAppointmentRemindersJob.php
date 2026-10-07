@@ -3,7 +3,9 @@
 namespace App\Jobs;
 
 use App\Models\Appointment;
+use App\Mail\AppointmentReminderMail;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 use App\Notifications\InAppNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -58,6 +60,13 @@ class SendAppointmentRemindersJob implements ShouldQueue
 
             if ($appointment->created_by && $appointment->created_by !== $appointment->provider?->user_id) {
                 User::find($appointment->created_by)?->notify($notification);
+            }
+
+            // Email patient if email on file
+            if ($appointment->patient->email) {
+                $timeframe = now()->diffInHours($appointment->start_at) <= 3 ? '2 hours' : '24 hours';
+                Mail::to($appointment->patient->email, $appointment->patient->first_name)
+                    ->queue(new AppointmentReminderMail($appointment, $timeframe));
             }
 
             $appointment->update(['reminder_sent_at' => now()]);
