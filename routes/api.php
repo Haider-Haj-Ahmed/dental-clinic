@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AppointmentTypeController;
 use App\Http\Controllers\Api\AiAnalysisController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\ClinicSettingController;
 use App\Http\Controllers\Api\ClinicClosureController;
 use App\Http\Controllers\Api\WebhookController;
@@ -45,6 +46,9 @@ use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+
+    // Health check — public, no auth, used by uptime monitors
+    Route::get('health', HealthController::class);
 
     /*
     |──────────────────────────────────────────────────────────────
