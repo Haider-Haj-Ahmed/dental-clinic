@@ -118,4 +118,41 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+]
+
+    /*
+    |--------------------------------------------------------------------------
+    | Password Expiry
+    |--------------------------------------------------------------------------
+    | Number of days before a user's password expires and they are forced to
+    | change it. Set to 0 to disable forced expiry.
+    */
+    'password_expiry_days' => (int) env('AUTH_PASSWORD_EXPIRY_DAYS', 0),
+
+    /*
+    |--------------------------------------------------------------------------
+    | IP Allowlist
+    |--------------------------------------------------------------------------
+    | Comma-separated list of allowed IP addresses or CIDR ranges.
+    | Leave empty to allow all IPs. Example: 192.168.1.0/24,10.0.0.1
+    */
+    'ip_allowlist' => array_filter(
+        explode(',', env('IP_ALLOWLIST', '')),
+        fn ($ip) => ! empty(trim($ip))
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Token Expiry Per Role (minutes)
+    |--------------------------------------------------------------------------
+    | Set to null or 0 for no expiry. Owner defaults to null (no expiry).
+    */
+    'token_expiry' => [
+        'owner'        => env('TOKEN_EXPIRY_OWNER',        null),
+        'provider'     => env('TOKEN_EXPIRY_PROVIDER',     60 * 24 * 30),
+        'receptionist' => env('TOKEN_EXPIRY_RECEPTIONIST', 60 * 24 * 14),
+        'assistant'    => env('TOKEN_EXPIRY_ASSISTANT',    60 * 24 * 7),
+        'default'      => env('TOKEN_EXPIRY_DEFAULT',      60 * 24 * 7),
+    ],
+
 ];
