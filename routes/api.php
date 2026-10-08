@@ -75,7 +75,7 @@ Route::prefix('v1')->group(function () {
     | ALL AUTHENTICATED ROUTES (throttle:api)
     |──────────────────────────────────────────────────────────────
     */
-    Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::middleware(['auth:sanctum', 'throttle:api', 'force.password.change'])->group(function () {
 
         /*── Auth session management ──────────────────────────────*/
         Route::prefix('auth')->group(function () {
