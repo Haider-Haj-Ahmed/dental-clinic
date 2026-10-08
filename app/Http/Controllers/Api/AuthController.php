@@ -342,8 +342,9 @@ class AuthController extends Controller
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user, string $password) {
                 $user->forceFill([
-                    'password'       => Hash::make($password),
-                    'remember_token' => Str::random(60),
+                    'password'           => Hash::make($password),
+                    'remember_token'     => Str::random(60),
+                    'password_changed_at'=> now(),
                 ])->save();
 
                 // Record in history after saving
@@ -400,8 +401,9 @@ class AuthController extends Controller
         }
 
         $user->forceFill([
-            'password'       => Hash::make($request->input('password')),
-            'remember_token' => Str::random(60),
+            'password'           => Hash::make($request->input('password')),
+            'remember_token'     => Str::random(60),
+            'password_changed_at'=> now(),
         ])->save();
 
         // Record in history
