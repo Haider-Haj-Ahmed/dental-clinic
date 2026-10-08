@@ -131,6 +131,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('token.ability:patients:read')->group(function () {
             Route::get('patients/{patient}/timeline', PatientTimelineController::class)->name('patients.timeline');
             Route::get('patients/{patient}/ledger',   [InvoiceController::class, 'ledger'])->name('patients.ledger');
+            Route::get('patients/{patient}/export',   [PatientController::class, 'export']);
             Route::apiResource('patients', PatientController::class)->only(['index', 'show']);
 
             Route::apiResource('patients/{patient}/contacts',    PatientContactController::class)->only(['index', 'show'])->shallow();
@@ -156,8 +157,9 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('token.ability:patients:write')->group(function () {
-            Route::post('patients/{patient}/archive', [PatientController::class, 'archive'])->withTrashed();
-            Route::post('patients/{patient}/restore', [PatientController::class, 'restore'])->withTrashed();
+            Route::post('patients/{patient}/archive',   [PatientController::class, 'archive'])->withTrashed();
+            Route::post('patients/{patient}/restore',   [PatientController::class, 'restore'])->withTrashed();
+            Route::delete('patients/{patient}/purge',   [PatientController::class, 'purge'])->withTrashed();
             Route::apiResource('patients', PatientController::class)->only(['store', 'update', 'destroy']);
 
             Route::apiResource('patients/{patient}/contacts',    PatientContactController::class)->only(['store', 'update', 'destroy'])->shallow();
