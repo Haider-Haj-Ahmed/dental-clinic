@@ -68,8 +68,9 @@ class AuthController extends Controller
             Mail::to($user->email, $user->name)->queue(new WelcomeMail($user, $data['password']));
         }
 
-        $abilities = $user->tokenAbilities();
-        $token     = $user->createToken($data['device_name'], $abilities)->plainTextToken;
+        $abilities  = $user->tokenAbilities();
+        $expiresAt  = $this->tokenExpiryForRole($user->role);
+        $token      = $user->createToken($data['device_name'], $abilities, $expiresAt)->plainTextToken;
 
         return response()->json([
             'message'        => 'Account created successfully. A verification email has been sent.',
@@ -124,8 +125,9 @@ class AuthController extends Controller
             ], 200);
         }
 
-        $abilities = $user->tokenAbilities();
-        $token     = $user->createToken($credentials['device_name'], $abilities)->plainTextToken;
+        $abilities  = $user->tokenAbilities();
+        $expiresAt  = $this->tokenExpiryForRole($user->role);
+        $token      = $user->createToken($credentials['device_name'], $abilities, $expiresAt)->plainTextToken;
 
         // New device login alert
         Mail::to($user->email, $user->name)->queue(
@@ -197,8 +199,9 @@ class AuthController extends Controller
         // Clear pending cache entry
         Cache::forget("2fa_pending:{$data['two_factor_token']}");
 
-        $abilities = $user->tokenAbilities();
-        $token     = $user->createToken($pending['device_name'], $abilities)->plainTextToken;
+        $abilities  = $user->tokenAbilities();
+        $expiresAt  = $this->tokenExpiryForRole($user->role);
+        $token      = $user->createToken($pending['device_name'], $abilities, $expiresAt)->plainTextToken;
 
         return response()->json([
             'token'          => $token,
@@ -479,5 +482,22 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Token revoked successfully.',
         ]);
+    }
+
+    /**
+     * Token expiry per role — pulled from config/auth.php.
+     * Returns null for owner (no expiry) unless explicitly configured.
+     */
+    private function tokenExpiryForRole(string $role): ?\Carbon\Carbon
+    {
+        $minutes = match ($role) {
+            \App\Models\User::ROLE_OWNER        => config('auth.token_expiry.owner'),
+            \App\Models\User::ROLE_PROVIDER      => config('auth.token_expiry.provider',      60 * 24 * 30),  // 30 days
+            \App\Models\User::ROLE_RECEPTIONIST  => config('auth.token_expiry.receptionist',  60 * 24 * 14),  // 14 days
+            \App\Models\User::ROLE_ASSISTANT     => config('auth.token_expiry.assistant',     60 * 24 * 7),   // 7 days
+            default                              => config('auth.token_expiry.default',       60 * 24 * 7),
+        };
+
+        return $minutes ? now()->addMinutes((int) $minutes) : null;
     }
 }
