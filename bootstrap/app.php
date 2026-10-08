@@ -31,7 +31,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'abilities'     => CheckAbilities::class,
             'ability'       => CheckForAnyAbility::class,
-            'token.ability' => \App\Http\Middleware\EnforceTokenAbilities::class,
+            'token.ability'         => \App\Http\Middleware\EnforceTokenAbilities::class,
+            'force.password.change' => \App\Http\Middleware\ForcePasswordChange::class,
+            'ip.allowlist'          => \App\Http\Middleware\IpAllowlist::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
