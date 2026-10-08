@@ -26,6 +26,9 @@ class Patient extends Model
         'is_active',
     ];
 
+    // Compliance columns
+    public const PURGE_DELAY_DAYS = 30; // days between archive and hard delete
+
     protected function casts(): array
     {
         return [
