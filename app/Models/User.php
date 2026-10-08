@@ -40,6 +40,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'two_factor_secret',
         'two_factor_confirmed_at',
         'two_factor_recovery_codes',
+        'password_changed_at',
     ];
 
     protected $hidden = [
@@ -47,6 +48,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'remember_token',
         'two_factor_secret',
         'two_factor_recovery_codes',
+        'password_changed_at',
     ];
 
     protected function casts(): array
@@ -54,6 +56,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at'       => 'datetime',
             'two_factor_confirmed_at' => 'datetime',
+            'password_changed_at'     => 'datetime',
             'password'                => 'hashed',
         ];
     }
