@@ -10,6 +10,8 @@ use App\Models\TreatmentPlan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use App\Models\ClinicSetting;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 
 class TreatmentPlanController extends Controller
@@ -115,5 +117,29 @@ class TreatmentPlanController extends Controller
         ]);
 
         return TreatmentPlanResource::make($treatmentPlan->refresh()->load(['patient', 'provider', 'items']));
+    }
+
+    /**
+     * Stream treatment plan as PDF.
+     * GET /api/v1/treatment-plans/{treatmentPlan}/pdf
+     */
+    public function pdf(TreatmentPlan $treatmentPlan): \Illuminate\Http\Response
+    {
+        $this->authorize('view', $treatmentPlan);
+
+        $plan     = $treatmentPlan->load(['patient', 'provider', 'items.procedureCode']);
+        $settings = ClinicSetting::instance();
+
+        $pdf = Pdf::loadView('pdf.treatment-plan', compact('plan', 'settings'))
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont'          => 'DejaVu Sans',
+                'isRemoteEnabled'      => false,
+                'isHtml5ParserEnabled' => true,
+            ]);
+
+        $filename = 'treatment-plan-' . str_pad($plan->id, 5, '0', STR_PAD_LEFT) . '.pdf';
+
+        return $pdf->stream($filename);
     }
 }
