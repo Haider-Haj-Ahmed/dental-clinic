@@ -254,6 +254,7 @@ Route::prefix('v1')->group(function () {
             Route::get('encounters/{encounter}/odontogram-entries', [OdontogramController::class, 'encounterEntries']);
             Route::get('patients/{patient}/odontogram',             [OdontogramController::class, 'patientOdontogram']);
             Route::apiResource('perio-exams',     PerioExamController::class)->only(['index', 'show']);
+            Route::get('treatment-plans/{treatmentPlan}/pdf', [TreatmentPlanController::class, 'pdf']);
             Route::apiResource('treatment-plans', TreatmentPlanController::class)->only(['index', 'show']);
             Route::get('prescriptions/{prescription}/pdf', [PrescriptionController::class, 'pdf']);
             Route::apiResource('prescriptions',   PrescriptionController::class)->only(['index', 'show']);
