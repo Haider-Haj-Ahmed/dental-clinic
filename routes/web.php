@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Web\AiAssistantController;
+use App\Http\Controllers\Api\SwaggerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,6 +17,10 @@ use App\Http\Controllers\Web\AiAssistantController;
  * Laravel's default auth scaffolding hooks — compatible with Breeze
  * if installed, otherwise wire up manually.
  * ══════════════════════════════════════════════════════════════════ */
+// API Documentation — Swagger UI (public)
+Route::get('/api/docs', [SwaggerController::class, 'ui'])->name('api.docs');
+Route::get('/api/docs/spec', [SwaggerController::class, 'spec'])->name('api.docs.spec');
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', fn () => view('auth.login'))->name('login');
     Route::post('/login', [App\Http\Controllers\Web\Auth\LoginController::class, 'store'])->name('login.store');
