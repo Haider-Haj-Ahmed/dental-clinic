@@ -35,7 +35,10 @@ class InvoiceController extends Controller
             ->when($request->filled('provider_id'), fn ($q) => $q->where('provider_id', $request->integer('provider_id')))
             ->when($request->filled('date_from'), fn ($q) => $q->whereDate('issued_at', '>=', $request->date('date_from')))
             ->when($request->filled('date_to'), fn ($q) => $q->whereDate('issued_at', '<=', $request->date('date_to')))
-            ->orderBy('issued_at', 'desc')
+            ->orderBy(
+                $this->sortBy($request, ['issued_at', 'created_at', 'total', 'status'], 'issued_at'),
+                $this->sortDir($request)
+            )
             ->paginate($this->perPage($request))
             ->withQueryString();
 
@@ -141,7 +144,10 @@ class InvoiceController extends Controller
         $invoices = Invoice::query()
             ->where('patient_id', $patient->id)
             ->with(['items', 'payments.paymentMethod'])
-            ->orderBy('issued_at', 'desc')
+            ->orderBy(
+                $this->sortBy($request, ['issued_at', 'created_at', 'total', 'status'], 'issued_at'),
+                $this->sortDir($request)
+            )
             ->paginate($this->perPage($request))
             ->withQueryString();
 
