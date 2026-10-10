@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\PaymentPlanController;
 use App\Http\Controllers\Api\ProcedureCodeController;
 use App\Http\Controllers\Api\ProviderController;
 use App\Http\Controllers\Api\PurchaseOrderController;
+use App\Http\Controllers\Api\ReferralController;
 use App\Http\Controllers\Api\RecallController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ScheduleBlockController;
