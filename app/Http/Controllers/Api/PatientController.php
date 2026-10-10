@@ -35,8 +35,10 @@ class PatientController extends Controller
             })
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->when($request->boolean('with_archived'), fn ($q) => $q->withTrashed())
-            ->orderBy('last_name')
-            ->orderBy('first_name')
+            ->orderBy(
+                $this->sortBy($request, ['last_name', 'first_name', 'created_at', 'date_of_birth', 'phone'], 'last_name'),
+                $this->sortDir($request, 'asc')
+            )
             ->paginate($this->perPage($request))
             ->withQueryString();
 
