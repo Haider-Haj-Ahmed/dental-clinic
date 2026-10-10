@@ -44,7 +44,10 @@ class AppointmentController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', (string) $request->string('status')))
             ->when($request->filled('date_from'), fn ($q) => $q->whereDate('start_at', '>=', $request->date('date_from')))
             ->when($request->filled('date_to'), fn ($q) => $q->whereDate('start_at', '<=', $request->date('date_to')))
-            ->orderBy('start_at')
+            ->orderBy(
+                $this->sortBy($request, ['start_at', 'created_at', 'status'], 'start_at'),
+                $this->sortDir($request, 'asc')
+            )
             ->paginate($this->perPage($request))
             ->withQueryString();
 
