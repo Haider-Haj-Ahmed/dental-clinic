@@ -26,6 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Set clinic timezone + locale per request from ClinicSetting
+        $middleware->prependToGroup('api', \App\Http\Middleware\SetClinicTimezone::class);
+
         // Append API version + request ID headers to every API response
         $middleware->appendToGroup('api', \App\Http\Middleware\AddApiHeaders::class);
 
@@ -35,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'token.ability'         => \App\Http\Middleware\EnforceTokenAbilities::class,
             'force.password.change' => \App\Http\Middleware\ForcePasswordChange::class,
             'ip.allowlist'          => \App\Http\Middleware\IpAllowlist::class,
+            'clinic.timezone'       => \App\Http\Middleware\SetClinicTimezone::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
