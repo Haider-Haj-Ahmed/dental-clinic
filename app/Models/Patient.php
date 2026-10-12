@@ -3,14 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Patient extends Model
+class Patient extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\PatientFactory> */
-    use HasFactory, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'first_name',
@@ -109,5 +111,15 @@ class Patient extends Model
     public function recalls(): HasMany
     {
         return $this->hasMany(Recall::class);
+    }
+
+    public function otpCodes(): HasMany
+    {
+        return $this->hasMany(PatientOtpCode::class);
+    }
+
+    public function portalTokenAbilities(): array
+    {
+        return ['portal:read'];
     }
 }
