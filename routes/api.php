@@ -6,6 +6,11 @@ use App\Http\Controllers\Api\AiAnalysisController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\Portal\PortalAuthController;
+use App\Http\Controllers\Api\Portal\PortalMeController;
+use App\Http\Controllers\Api\Portal\PortalAppointmentController;
+use App\Http\Controllers\Api\Portal\PortalInvoiceController;
+use App\Http\Controllers\Api\Portal\PortalPrescriptionController;
 use App\Http\Controllers\Api\ClinicSettingController;
 use App\Http\Controllers\Api\ClinicClosureController;
 use App\Http\Controllers\Api\WebhookController;
@@ -50,6 +55,35 @@ Route::prefix('v1')->group(function () {
 
     // Health check — public, no auth, used by uptime monitors
     Route::get('health', HealthController::class);
+
+    /*
+    |──────────────────────────────────────────────────────────────
+    | PATIENT PORTAL — /api/v1/portal/*
+    | Separate auth flow — OTP-based, issues tokens for Patient model
+    | All portal tokens carry only 'portal:read' ability
+    |──────────────────────────────────────────────────────────────
+    */
+    Route::prefix('portal')->group(function () {
+
+        // Public — OTP request + verification (throttled)
+        Route::middleware('throttle:auth')->group(function () {
+            Route::post('auth/request-otp', [PortalAuthController::class, 'requestOtp']);
+            Route::post('auth/verify-otp',  [PortalAuthController::class, 'verifyOtp']);
+        });
+
+        // Authenticated portal routes — Patient model via Sanctum
+        Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+            Route::post('auth/logout',         [PortalAuthController::class, 'logout']);
+            Route::get('me',                   PortalMeController::class);
+            Route::get('appointments',         [PortalAppointmentController::class, 'index']);
+            Route::get('appointments/upcoming',[PortalAppointmentController::class, 'upcoming']);
+            Route::get('invoices',             [PortalInvoiceController::class, 'index']);
+            Route::get('invoices/{invoice}/pdf',[PortalInvoiceController::class, 'pdf']);
+            Route::get('prescriptions',        [PortalPrescriptionController::class, 'index']);
+        });
+    });
+
+
 
     /*
     |──────────────────────────────────────────────────────────────
