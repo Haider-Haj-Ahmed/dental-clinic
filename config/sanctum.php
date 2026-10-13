@@ -34,7 +34,13 @@ return [
     |
     */
 
-    'guard' => ['web'],
+    'guard' => ['web', 'portal'],
+
+    // Models that can issue Sanctum tokens
+    'models' => [
+        \App\Models\User::class,
+        \App\Models\Patient::class,
+    ],
 
     /*
     |--------------------------------------------------------------------------
