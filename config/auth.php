@@ -43,8 +43,14 @@ return [
             'provider' => 'users',
         ],
         'sanctum' => [
-            'driver' => 'sanctum',
+            'driver'   => 'sanctum',
             'provider' => 'users',
+        ],
+
+        // Patient portal guard — uses Patient model via Sanctum
+        'portal' => [
+            'driver'   => 'sanctum',
+            'provider' => 'patients',
         ],
     ],
 
