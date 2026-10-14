@@ -9,7 +9,10 @@ use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\TwoFactorChallengeRequest;
 use App\Http\Resources\UserResource;
+use App\Mail\NewDeviceLoginMail;
+use App\Mail\PasswordChangedMail;
 use App\Mail\VerifyEmailMail;
+use App\Mail\WelcomeMail;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
@@ -60,8 +63,14 @@ class AuthController extends Controller
         // Fire Registered event → queues VerifyEmailMail
         event(new Registered($user));
 
-        $abilities = $user->tokenAbilities();
-        $token     = $user->createToken($data['device_name'], $abilities)->plainTextToken;
+        // Welcome email — only when owner is creating a staff account (not first-user bootstrap)
+        if (! $isFirstUser) {
+            Mail::to($user->email, $user->name)->queue(new WelcomeMail($user, $data['password']));
+        }
+
+        $abilities  = $user->tokenAbilities();
+        $expiresAt  = $this->tokenExpiryForRole($user->role);
+        $token      = $user->createToken($data['device_name'], $abilities, $expiresAt)->plainTextToken;
 
         return response()->json([
             'message'        => 'Account created successfully. A verification email has been sent.',
@@ -116,8 +125,14 @@ class AuthController extends Controller
             ], 200);
         }
 
-        $abilities = $user->tokenAbilities();
-        $token     = $user->createToken($credentials['device_name'], $abilities)->plainTextToken;
+        $abilities  = $user->tokenAbilities();
+        $expiresAt  = $this->tokenExpiryForRole($user->role);
+        $token      = $user->createToken($credentials['device_name'], $abilities, $expiresAt)->plainTextToken;
+
+        // New device login alert
+        Mail::to($user->email, $user->name)->queue(
+            new NewDeviceLoginMail($user, $credentials['device_name'], $request->ip() ?? 'unknown')
+        );
 
         return response()->json([
             'token'          => $token,
@@ -184,8 +199,9 @@ class AuthController extends Controller
         // Clear pending cache entry
         Cache::forget("2fa_pending:{$data['two_factor_token']}");
 
-        $abilities = $user->tokenAbilities();
-        $token     = $user->createToken($pending['device_name'], $abilities)->plainTextToken;
+        $abilities  = $user->tokenAbilities();
+        $expiresAt  = $this->tokenExpiryForRole($user->role);
+        $token      = $user->createToken($pending['device_name'], $abilities, $expiresAt)->plainTextToken;
 
         return response()->json([
             'token'          => $token,
@@ -329,8 +345,9 @@ class AuthController extends Controller
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user, string $password) {
                 $user->forceFill([
-                    'password'       => Hash::make($password),
-                    'remember_token' => Str::random(60),
+                    'password'           => Hash::make($password),
+                    'remember_token'     => Str::random(60),
+                    'password_changed_at'=> now(),
                 ])->save();
 
                 // Record in history after saving
@@ -387,8 +404,9 @@ class AuthController extends Controller
         }
 
         $user->forceFill([
-            'password'       => Hash::make($request->input('password')),
-            'remember_token' => Str::random(60),
+            'password'           => Hash::make($request->input('password')),
+            'remember_token'     => Str::random(60),
+            'password_changed_at'=> now(),
         ])->save();
 
         // Record in history
@@ -397,6 +415,11 @@ class AuthController extends Controller
         // Revoke all OTHER tokens — current stays valid so the user is not logged out
         $currentTokenId = $user->currentAccessToken()->id;
         $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+
+        // Security alert email
+        Mail::to($user->email, $user->name)->queue(
+            new PasswordChangedMail($user, $request->ip() ?? 'unknown')
+        );
 
         return response()->json([
             'message' => 'Password changed successfully. All other sessions have been revoked.',
@@ -459,5 +482,22 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Token revoked successfully.',
         ]);
+    }
+
+    /**
+     * Token expiry per role — pulled from config/auth.php.
+     * Returns null for owner (no expiry) unless explicitly configured.
+     */
+    private function tokenExpiryForRole(string $role): ?\Carbon\Carbon
+    {
+        $minutes = match ($role) {
+            \App\Models\User::ROLE_OWNER        => config('auth.token_expiry.owner'),
+            \App\Models\User::ROLE_PROVIDER      => config('auth.token_expiry.provider',      60 * 24 * 30),  // 30 days
+            \App\Models\User::ROLE_RECEPTIONIST  => config('auth.token_expiry.receptionist',  60 * 24 * 14),  // 14 days
+            \App\Models\User::ROLE_ASSISTANT     => config('auth.token_expiry.assistant',     60 * 24 * 7),   // 7 days
+            default                              => config('auth.token_expiry.default',       60 * 24 * 7),
+        };
+
+        return $minutes ? now()->addMinutes((int) $minutes) : null;
     }
 }

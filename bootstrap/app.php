@@ -14,6 +14,7 @@ use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Sentry\Laravel\Integration;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -25,13 +26,25 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Set clinic timezone + locale per request from ClinicSetting
+        $middleware->prependToGroup('api', \App\Http\Middleware\SetClinicTimezone::class);
+
+        // Append API version + request ID headers to every API response
+        $middleware->appendToGroup('api', \App\Http\Middleware\AddApiHeaders::class);
+
         $middleware->alias([
             'abilities'     => CheckAbilities::class,
             'ability'       => CheckForAnyAbility::class,
-            'token.ability' => \App\Http\Middleware\EnforceTokenAbilities::class,
+            'token.ability'         => \App\Http\Middleware\EnforceTokenAbilities::class,
+            'force.password.change' => \App\Http\Middleware\ForcePasswordChange::class,
+            'ip.allowlist'          => \App\Http\Middleware\IpAllowlist::class,
+            'clinic.timezone'       => \App\Http\Middleware\SetClinicTimezone::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Report all exceptions to Sentry (no-op when SENTRY_DSN is not set)
+        Integration::handles($exceptions);
+
         /*
         |──────────────────────────────────────────────────────────────
         | Global JSON exception handler for API routes

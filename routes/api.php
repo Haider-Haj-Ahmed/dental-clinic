@@ -5,6 +5,12 @@ use App\Http\Controllers\Api\AppointmentTypeController;
 use App\Http\Controllers\Api\AiAnalysisController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\Portal\PortalAuthController;
+use App\Http\Controllers\Api\Portal\PortalMeController;
+use App\Http\Controllers\Api\Portal\PortalAppointmentController;
+use App\Http\Controllers\Api\Portal\PortalInvoiceController;
+use App\Http\Controllers\Api\Portal\PortalPrescriptionController;
 use App\Http\Controllers\Api\ClinicSettingController;
 use App\Http\Controllers\Api\ClinicClosureController;
 use App\Http\Controllers\Api\WebhookController;
@@ -37,6 +43,7 @@ use App\Http\Controllers\Api\PaymentPlanController;
 use App\Http\Controllers\Api\ProcedureCodeController;
 use App\Http\Controllers\Api\ProviderController;
 use App\Http\Controllers\Api\PurchaseOrderController;
+use App\Http\Controllers\Api\ReferralController;
 use App\Http\Controllers\Api\RecallController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ScheduleBlockController;
@@ -45,6 +52,38 @@ use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+
+    // Health check — public, no auth, used by uptime monitors
+    Route::get('health', HealthController::class);
+
+    /*
+    |──────────────────────────────────────────────────────────────
+    | PATIENT PORTAL — /api/v1/portal/*
+    | Separate auth flow — OTP-based, issues tokens for Patient model
+    | All portal tokens carry only 'portal:read' ability
+    |──────────────────────────────────────────────────────────────
+    */
+    Route::prefix('portal')->group(function () {
+
+        // Public — OTP request + verification (throttled)
+        Route::middleware('throttle:auth')->group(function () {
+            Route::post('auth/request-otp', [PortalAuthController::class, 'requestOtp']);
+            Route::post('auth/verify-otp',  [PortalAuthController::class, 'verifyOtp']);
+        });
+
+        // Authenticated portal routes — Patient model via Sanctum
+        Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+            Route::post('auth/logout',         [PortalAuthController::class, 'logout']);
+            Route::get('me',                   PortalMeController::class);
+            Route::get('appointments',         [PortalAppointmentController::class, 'index']);
+            Route::get('appointments/upcoming',[PortalAppointmentController::class, 'upcoming']);
+            Route::get('invoices',             [PortalInvoiceController::class, 'index']);
+            Route::get('invoices/{invoice}/pdf',[PortalInvoiceController::class, 'pdf']);
+            Route::get('prescriptions',        [PortalPrescriptionController::class, 'index']);
+        });
+    });
+
+
 
     /*
     |──────────────────────────────────────────────────────────────
@@ -71,7 +110,7 @@ Route::prefix('v1')->group(function () {
     | ALL AUTHENTICATED ROUTES (throttle:api)
     |──────────────────────────────────────────────────────────────
     */
-    Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::middleware(['auth:sanctum', 'throttle:api', 'force.password.change'])->group(function () {
 
         /*── Auth session management ──────────────────────────────*/
         Route::prefix('auth')->group(function () {
@@ -127,6 +166,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('token.ability:patients:read')->group(function () {
             Route::get('patients/{patient}/timeline', PatientTimelineController::class)->name('patients.timeline');
             Route::get('patients/{patient}/ledger',   [InvoiceController::class, 'ledger'])->name('patients.ledger');
+            Route::get('patients/{patient}/export',   [PatientController::class, 'export']);
             Route::apiResource('patients', PatientController::class)->only(['index', 'show']);
 
             Route::apiResource('patients/{patient}/contacts',    PatientContactController::class)->only(['index', 'show'])->shallow();
@@ -152,8 +192,9 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('token.ability:patients:write')->group(function () {
-            Route::post('patients/{patient}/archive', [PatientController::class, 'archive'])->withTrashed();
-            Route::post('patients/{patient}/restore', [PatientController::class, 'restore'])->withTrashed();
+            Route::post('patients/{patient}/archive',   [PatientController::class, 'archive'])->withTrashed();
+            Route::post('patients/{patient}/restore',   [PatientController::class, 'restore'])->withTrashed();
+            Route::delete('patients/{patient}/purge',   [PatientController::class, 'purge'])->withTrashed();
             Route::apiResource('patients', PatientController::class)->only(['store', 'update', 'destroy']);
 
             Route::apiResource('patients/{patient}/contacts',    PatientContactController::class)->only(['store', 'update', 'destroy'])->shallow();
@@ -248,6 +289,7 @@ Route::prefix('v1')->group(function () {
             Route::get('encounters/{encounter}/odontogram-entries', [OdontogramController::class, 'encounterEntries']);
             Route::get('patients/{patient}/odontogram',             [OdontogramController::class, 'patientOdontogram']);
             Route::apiResource('perio-exams',     PerioExamController::class)->only(['index', 'show']);
+            Route::get('treatment-plans/{treatmentPlan}/pdf', [TreatmentPlanController::class, 'pdf']);
             Route::apiResource('treatment-plans', TreatmentPlanController::class)->only(['index', 'show']);
             Route::get('prescriptions/{prescription}/pdf', [PrescriptionController::class, 'pdf']);
             Route::apiResource('prescriptions',   PrescriptionController::class)->only(['index', 'show']);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ArchiveOldAuditLogsJob;
 use App\Jobs\CheckLowStockJob;
 use App\Jobs\GenerateWeeklyReportJob;
 use App\Jobs\PruneExpiredTokensJob;
@@ -46,6 +47,13 @@ Schedule::job(new CheckLowStockJob)
     ->name('check-low-stock')
     ->withoutOverlapping()
     ->onFailure(fn () => logger()->error('Scheduled job failed: check-low-stock'));
+
+// 02:00 on 1st of each month — archive audit logs older than 1 year
+Schedule::job(new ArchiveOldAuditLogsJob)
+    ->monthlyOn(1, '02:00')
+    ->name('archive-audit-logs')
+    ->withoutOverlapping()
+    ->onFailure(fn () => logger()->error('Scheduled job failed: archive-audit-logs'));
 
 // 07:00 every Monday — weekly production report to owner
 Schedule::job(new GenerateWeeklyReportJob)

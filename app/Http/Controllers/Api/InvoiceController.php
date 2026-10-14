@@ -14,6 +14,9 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\ClinicSetting;
+use App\Mail\InvoiceFinalizedMail;
+use App\Services\WebhookDispatcher;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceController extends Controller
@@ -32,7 +35,10 @@ class InvoiceController extends Controller
             ->when($request->filled('provider_id'), fn ($q) => $q->where('provider_id', $request->integer('provider_id')))
             ->when($request->filled('date_from'), fn ($q) => $q->whereDate('issued_at', '>=', $request->date('date_from')))
             ->when($request->filled('date_to'), fn ($q) => $q->whereDate('issued_at', '<=', $request->date('date_to')))
-            ->orderBy('issued_at', 'desc')
+            ->orderBy(
+                $this->sortBy($request, ['issued_at', 'created_at', 'total', 'status'], 'issued_at'),
+                $this->sortDir($request)
+            )
             ->paginate($this->perPage($request))
             ->withQueryString();
 
@@ -97,7 +103,23 @@ class InvoiceController extends Controller
             'finalized_by' => $request->user()->id,
         ]);
 
-        return InvoiceResource::make($invoice->refresh()->load(['patient', 'provider', 'items']));
+        $invoice->refresh()->load(['patient', 'provider', 'items']);
+
+        // Invoice email to patient with PDF attachment
+        if ($invoice->patient->email) {
+            Mail::to($invoice->patient->email, $invoice->patient->first_name)
+                ->queue(new InvoiceFinalizedMail($invoice));
+        }
+
+        app(WebhookDispatcher::class)->dispatch('invoice.finalized', [
+            'invoice_id'  => $invoice->id,
+            'patient_id'  => $invoice->patient_id,
+            'total'       => $invoice->total,
+            'currency'    => \App\Models\ClinicSetting::instance()->currency_code,
+            'finalized_at'=> now()->toIso8601String(),
+        ]);
+
+        return InvoiceResource::make($invoice);
     }
 
     /** POST /invoices/{invoice}/void */
@@ -122,7 +144,10 @@ class InvoiceController extends Controller
         $invoices = Invoice::query()
             ->where('patient_id', $patient->id)
             ->with(['items', 'payments.paymentMethod'])
-            ->orderBy('issued_at', 'desc')
+            ->orderBy(
+                $this->sortBy($request, ['issued_at', 'created_at', 'total', 'status'], 'issued_at'),
+                $this->sortDir($request)
+            )
             ->paginate($this->perPage($request))
             ->withQueryString();
 

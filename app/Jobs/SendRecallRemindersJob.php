@@ -9,7 +9,9 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use App\Mail\RecallReminderMail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Scheduled: daily at 07:00.
@@ -43,6 +45,13 @@ class SendRecallRemindersJob implements ShouldQueue
 
         foreach ($recalls as $recall) {
             event(new RecallOverdue($recall));
+
+            // Email patient directly if email on file
+            if ($recall->patient->email) {
+                Mail::to($recall->patient->email, $recall->patient->first_name)
+                    ->queue(new RecallReminderMail($recall));
+            }
+
             $recall->update([
                 'status'                => Recall::STATUS_SENT,
                 'last_reminder_sent_at' => now(),

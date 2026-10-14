@@ -15,6 +15,8 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    'version' => env('APP_VERSION', '3.0.0'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment
@@ -79,6 +81,10 @@ return [
     */
 
     'locale' => env('APP_LOCALE', 'en'),
+
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+
+    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 

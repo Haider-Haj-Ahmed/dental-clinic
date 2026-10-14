@@ -12,6 +12,9 @@ use App\Models\Prescription;
 use App\Models\PrescriptionItem;
 use App\Models\Recall;
 use App\Models\PatientMedicalDocument;
+use App\Events\AiResultReady;
+use App\Mail\AiResultPendingMail;
+use Illuminate\Support\Facades\Mail;
 use App\Services\AiService;
 use Illuminate\Support\Facades\DB;
 use App\Services\FileStorageService;
@@ -62,7 +65,16 @@ class AiAnalysisController extends Controller
 
         $result = $this->aiService->analyseImage($document, $request->user(), $document->file_path);
 
-        return AiAnalysisResultResource::make($result->load(['requestedBy', 'reviewedBy']));
+        $result->load(['patient', 'requestedBy', 'reviewedBy']);
+        event(new AiResultReady($result));
+
+        // Email the requesting provider
+        if ($result->requestedBy?->email) {
+            Mail::to($result->requestedBy->email, $result->requestedBy->name)
+                ->queue(new AiResultPendingMail($result));
+        }
+
+        return AiAnalysisResultResource::make($result);
     }
 
     // ── Phase 5B — SOAP note suggestion ──────────────────────────────────────
@@ -90,7 +102,16 @@ class AiAnalysisController extends Controller
 
         $result = $this->aiService->suggestSoap($encounter, $request->user());
 
-        return AiAnalysisResultResource::make($result->load(['requestedBy', 'reviewedBy']));
+        $result->load(['patient', 'requestedBy', 'reviewedBy']);
+        event(new AiResultReady($result));
+
+        // Email the requesting provider
+        if ($result->requestedBy?->email) {
+            Mail::to($result->requestedBy->email, $result->requestedBy->name)
+                ->queue(new AiResultPendingMail($result));
+        }
+
+        return AiAnalysisResultResource::make($result);
     }
 
     /**
@@ -174,7 +195,16 @@ class AiAnalysisController extends Controller
             $encounterId,
         );
 
-        return AiAnalysisResultResource::make($result->load(['requestedBy', 'reviewedBy']));
+        $result->load(['patient', 'requestedBy', 'reviewedBy']);
+        event(new AiResultReady($result));
+
+        // Email the requesting provider
+        if ($result->requestedBy?->email) {
+            Mail::to($result->requestedBy->email, $result->requestedBy->name)
+                ->queue(new AiResultPendingMail($result));
+        }
+
+        return AiAnalysisResultResource::make($result);
     }
 
     /**
@@ -276,7 +306,16 @@ class AiAnalysisController extends Controller
 
         $result = $this->aiService->scorePerioRisk($perioExam, $request->user());
 
-        return AiAnalysisResultResource::make($result->load(['requestedBy', 'reviewedBy']));
+        $result->load(['patient', 'requestedBy', 'reviewedBy']);
+        event(new AiResultReady($result));
+
+        // Email the requesting provider
+        if ($result->requestedBy?->email) {
+            Mail::to($result->requestedBy->email, $result->requestedBy->name)
+                ->queue(new AiResultPendingMail($result));
+        }
+
+        return AiAnalysisResultResource::make($result);
     }
 
     // ── Phase 5D — AI patient insights ──────────────────────────────────────
