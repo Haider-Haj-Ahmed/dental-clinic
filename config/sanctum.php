@@ -34,7 +34,7 @@ return [
     |
     */
 
-    'guard' => ['web', 'portal'],
+    'guard' => ['web'],
 
     // Models that can issue Sanctum tokens
     'models' => [

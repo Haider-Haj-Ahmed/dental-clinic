@@ -108,7 +108,7 @@ class PortalAuthController extends Controller
         $otpRecord = PatientOtpCode::where('patient_id', $patient->id)
             ->where('code', $request->input('code'))
             ->where('used', false)
-            ->where('expires_at', '>', now())
+            ->where('expires_at', '>', now('UTC'))
             ->latest()
             ->first();
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -52,6 +53,10 @@ class ForcePasswordChange
 
         if (! $user) {
             return $next($request);
+        }
+
+        if (! $user instanceof User) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
         $lastChanged = $user->password_changed_at ?? $user->created_at;

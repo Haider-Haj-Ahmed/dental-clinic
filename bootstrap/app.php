@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Set clinic timezone + locale per request from ClinicSetting
+        $middleware->prependToGroup('api', \App\Http\Middleware\ResetAuthGuards::class);
         $middleware->prependToGroup('api', \App\Http\Middleware\SetClinicTimezone::class);
 
         // Append API version + request ID headers to every API response
@@ -42,8 +43,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Report all exceptions to Sentry (no-op when SENTRY_DSN is not set)
-        Integration::handles($exceptions);
+        // Report all exceptions to Sentry (no-op when DSN is empty; skip entirely in tests)
+        if (! app()->environment('testing')) {
+            Integration::handles($exceptions);
+        }
 
         /*
         |──────────────────────────────────────────────────────────────

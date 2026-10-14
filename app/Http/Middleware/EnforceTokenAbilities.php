@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,6 +19,10 @@ class EnforceTokenAbilities
 
         if (! $user) {
             return $next($request);
+        }
+
+        if (! $user instanceof User) {
+            return response()->json(['message' => 'Unauthenticated.'], Response::HTTP_UNAUTHORIZED);
         }
 
         // Owner tokens carry '*' — always pass

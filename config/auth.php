@@ -44,7 +44,7 @@ return [
         ],
         'sanctum' => [
             'driver'   => 'sanctum',
-            'provider' => 'users',
+            'provider' => null,
         ],
 
         // Patient portal guard — uses Patient model via Sanctum
@@ -75,6 +75,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'patients' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Patient::class,
         ],
 
         // 'users' => [
@@ -123,8 +128,6 @@ return [
     */
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
-
-]
 
     /*
     |--------------------------------------------------------------------------

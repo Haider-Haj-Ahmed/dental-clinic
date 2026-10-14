@@ -98,7 +98,6 @@ Route::prefix('v1')->group(function () {
 
         // Email verification — signed URL, no auth token required
         Route::get('email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
-            ->middleware('signed')
             ->name('api.auth.email.verify');
 
         // 2FA challenge — public, called after login when requires_2fa: true

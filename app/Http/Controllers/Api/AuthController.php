@@ -383,7 +383,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'current_password' => ['required', 'string'],
-            'password'         => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()],
+            'password'         => ['required', 'string', 'confirmed'],
         ]);
 
         /** @var User $user */
@@ -403,6 +403,10 @@ class AuthController extends Controller
             ]);
         }
 
+        $request->validate([
+            'password' => [\Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()],
+        ]);
+
         $user->forceFill([
             'password'           => Hash::make($request->input('password')),
             'remember_token'     => Str::random(60),
@@ -413,8 +417,12 @@ class AuthController extends Controller
         $user->recordPasswordHistory();
 
         // Revoke all OTHER tokens — current stays valid so the user is not logged out
-        $currentTokenId = $user->currentAccessToken()->id;
-        $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+        $currentTokenId = PersonalAccessToken::findToken($request->bearerToken())?->id
+            ?? $user->currentAccessToken()?->id;
+
+        $user->tokens()
+            ->when($currentTokenId, fn ($query) => $query->where('id', '!=', $currentTokenId))
+            ->delete();
 
         // Security alert email
         Mail::to($user->email, $user->name)->queue(
@@ -498,6 +506,6 @@ class AuthController extends Controller
             default                              => config('auth.token_expiry.default',       60 * 24 * 7),
         };
 
-        return $minutes ? now()->addMinutes((int) $minutes) : null;
+        return $minutes ? \Carbon\Carbon::now()->addMinutes((int) $minutes) : null;
     }
 }
