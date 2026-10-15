@@ -6,7 +6,8 @@
 
 <p align="center">
   A production-ready <strong>Laravel 13 REST API</strong> for full dental practice management —<br/>
-  from patient records and clinical workflows to AI-assisted diagnosis, real-time notifications, and webhook integrations.
+  from patient records and clinical workflows to AI-assisted diagnosis, real-time notifications,<br/>
+  webhook integrations, and a patient self-service portal.
 </p>
 
 <p align="center">
@@ -14,6 +15,7 @@
   <img src="https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white"/>
   <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white"/>
   <img src="https://img.shields.io/badge/OpenAPI-3.0.0-6BA539?logo=openapiinitiative&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Tests-30%20suites-brightgreen"/>
 </p>
 
 ---
@@ -21,21 +23,22 @@
 ## Features
 
 ### Core Clinical
-- **Patient management** — demographics, medical history, allergies, conditions, medications, consents
-- **Appointments** — booking, status tracking, operatory assignment, appointment types
+- **Patient management** — demographics, medical history, allergies, conditions, medications, consents, archive/restore/purge (GDPR)
+- **Appointments** — booking, status tracking, operatory assignment, appointment types, reminders
 - **Encounters** — SOAP notes, lock/unlock workflow, clinical audit trail
 - **Odontogram** — FDI tooth chart entries per encounter
 - **Perio exams** — full periodontal charting with pocket depth measures
-- **Treatment plans** — multi-item plans with present/accept/reject workflow
-- **Prescriptions** — medication lists with dose, frequency, duration, PDF generation
+- **Treatment plans** — multi-item plans with present/accept/reject workflow + PDF export
+- **Prescriptions** — medication lists with dose, frequency, duration, instructions + PDF export
+- **Referral letters** — specialist referrals with urgency levels + PDF export
 - **Medical cases & documents** — X-rays, referrals, file upload with auth-protected download
 
 ### Billing
-- **Invoices** — draft → finalized → voided lifecycle, itemized line items, PDF generation
-- **Payments** — payment recording, partial payments, balance tracking
+- **Invoices** — draft → finalized → voided lifecycle, itemized line items, PDF export
+- **Payments** — payment recording, partial payments, balance tracking, receipt emails
 - **Payment plans** — installment schedules
 
-### AI Integration (Gemini Flash)
+### AI Integration (Gemini Flash 2.0)
 - SOAP note suggestions from encounter text
 - X-ray / document analysis
 - Prescription suggestions with drug interaction flags
@@ -44,46 +47,78 @@
 
 ### Authentication & Security
 - Sanctum token auth with role-scoped abilities
-- Email verification (signed URL, 60-minute expiry)
-- **2FA / TOTP** — enable, confirm, disable, recovery codes, login challenge flow
-- Active token management — list + revoke individual sessions
-- Password history enforcement (last 5 passwords rejected)
-- Global JSON error handling (no HTML error pages)
-- Rate limiting per role (owner: unlimited, provider: 120/min, etc.)
+- **Email verification** — signed URL, 60-minute expiry, resend endpoint
+- **2FA / TOTP** — enable, confirm, disable, recovery codes (8), login challenge flow
+- **Active token management** — list + revoke individual sessions
+- **Password history** — last 5 passwords enforced on reset + change
+- **Password expiry** — configurable forced rotation (`AUTH_PASSWORD_EXPIRY_DAYS`)
+- **Role-scoped token expiry** — per-role TTL (owner: no expiry, provider: 30d, etc.)
+- **IP allowlist middleware** — exact IPs and CIDR ranges
+- Global JSON error handling — 401/403/404/405/422/429/500 never return HTML
+- Rate limiting per role + strict throttle on auth endpoints
 - 28 authorization policies across all resources
 
 ### Notifications & Real-time
-- **In-app notifications** (database channel) — per-user bell with unread count
+- **In-app notifications** (database channel) — per-user bell with unread count, mark read, delete
 - **Laravel Reverb** — WebSocket broadcasting on private channels (`App.Models.User.{id}`)
-- Events: appointment booked/status changed, AI result ready, recall overdue, low stock alert
+- **Events** — appointment booked/status changed, AI result ready, recall overdue, low stock
 - All notifications queued — never block HTTP requests
+
+### Transactional Emails (11 templates)
+| Email | Trigger | Recipient |
+|---|---|---|
+| Welcome | Owner creates staff account | New staff member |
+| Appointment Confirmation | Booking created | Patient |
+| Appointment Reminder | Daily job (24h / 2h before) | Patient |
+| Appointment Cancelled | Status → cancelled | Patient |
+| Invoice Finalized | Invoice finalized (with PDF) | Patient |
+| Payment Receipt | Payment recorded | Patient |
+| Recall Reminder | Overdue recall job | Patient |
+| Low Stock Alert | Daily stock check | Owner |
+| AI Result Pending | AI analysis complete | Requesting provider |
+| Password Changed | Password changed | User |
+| New Device Login | Successful login | User |
 
 ### Clinic Configuration
 - **Clinic settings** — identity, locale, branding, billing, appointments, reminders, security
-- **Working hours** — per-day open/close times, closed days
+- **Working hours** — per-day open/close, closed days
 - **Clinic closures** — holidays and one-off closure dates
 
+### Patient Portal
+- Passwordless OTP login (email) — 6-digit code, 10-minute expiry
+- Patient-scoped Sanctum tokens (`portal:read` ability only)
+- Profile, appointments, invoices (with PDF download), prescriptions
+
 ### Webhooks
-- Register webhook URLs for 8 event types
-- HMAC-SHA256 signed payloads (`X-Webhook-Signature-256`)
-- 3 retries with exponential backoff (1min → 5min → 15min)
-- Delivery history log per webhook
-- Auto-deactivation after 10 consecutive failures
-- Test ping endpoint
+- 8 event types, HMAC-SHA256 signed payloads
+- 3 retries with exponential backoff, delivery history, auto-deactivation, test ping
 
-### Automation
-- Appointment reminders (daily 08:00)
-- Recall reminders for overdue patients (daily 07:00)
-- Low stock alerts (daily 08:30)
-- Expired token pruning (daily 03:00)
-- Weekly production report to owner (Monday 07:00)
+### PDF Generation
+- Invoice, Prescription, Treatment Plan, Referral Letter
+- All 5 reports exportable via `?format=pdf` or `?format=xlsx`
 
-### Infrastructure
-- Laravel Reverb (self-hosted WebSocket)
-- Database queue with Supervisor workers
-- Branded HTML email templates (`BaseMail` + queue)
-- Invoice PDF + Prescription PDF (`barryvdh/laravel-dompdf`)
-- Full OpenAPI 3.0 spec (`dental-clinic-api.yaml`)
+### Automation (Scheduled Jobs)
+| Job | Schedule | Action |
+|---|---|---|
+| `PruneExpiredTokensJob` | Daily 03:00 | Delete expired Sanctum tokens |
+| `SendRecallRemindersJob` | Daily 07:00 | Email overdue recalls to patients |
+| `SendAppointmentRemindersJob` | Daily 08:00 | Email appointment reminders |
+| `CheckLowStockJob` | Daily 08:30 | Alert owner of low inventory |
+| `GenerateWeeklyReportJob` | Monday 07:00 | Weekly production summary |
+| `ArchiveOldAuditLogsJob` | Monthly 1st 02:00 | Archive + purge old audit logs |
+
+### Compliance
+- `GET /patients/{id}/export` — full patient record JSON export
+- `DELETE /patients/{id}/purge` — two-step hard delete
+
+### API Polish
+- `X-API-Version` + `X-Request-ID` headers on every response
+- `GET /api/v1/health` — DB + cache + queue + storage status
+- `GET /api/docs` — Swagger UI (public)
+- `?sort_by=` + `?sort_dir=` on collection endpoints
+- Timezone-aware output via `SetClinicTimezone` middleware
+- Arabic + English localization (`lang/en/` + `lang/ar/`)
+- Sentry integration
 
 ---
 
@@ -97,31 +132,28 @@
 | Queue | Database driver → Supervisor |
 | WebSockets | Laravel Reverb |
 | AI | Google Gemini Flash 2.0 |
-| PDF | barryvdh/laravel-dompdf |
+| PDF | barryvdh/laravel-dompdf ^3.0 |
+| Excel | phpoffice/phpspreadsheet ^2.0 |
 | 2FA | pragmarx/google2fa-laravel |
-| QR Code | bacon/bacon-qr-code |
+| Monitoring | sentry/sentry-laravel ^4.0 |
 
 ---
 
 ## Getting Started
 
 ### Requirements
-- PHP 8.2+ with extensions: `pdo_mysql`, `mbstring`, `openssl`, `json`, `xml`, `curl`, `gd`, `zip`
+- PHP 8.2+ (`pdo_mysql`, `mbstring`, `openssl`, `json`, `xml`, `curl`, `gd`, `zip`)
 - MySQL 8.0+ or MariaDB 10.6+
 - Composer 2.x
-- Node.js 18+
 
 ### Installation
 
 ```bash
 git clone https://github.com/Haider-Haj-Ahmed/dental-clinic.git
 cd dental-clinic
-
 composer install
 cp .env.example .env
 php artisan key:generate
-
-# Configure DB credentials in .env, then:
 php artisan migrate
 php artisan db:seed
 ```
@@ -129,115 +161,44 @@ php artisan db:seed
 ### Running locally
 
 ```bash
-# Terminal 1 — app server
-php artisan serve
-
-# Terminal 2 — queue worker
-php artisan queue:work
-
-# Terminal 3 — Reverb WebSocket server (optional for real-time)
-php artisan reverb:start
+php artisan serve          # Terminal 1
+php artisan queue:work     # Terminal 2
+php artisan reverb:start   # Terminal 3 (optional — real-time)
 ```
 
-### Default login (after seeding)
+### Default accounts (after seeding)
 
 | Email | Password | Role |
 |---|---|---|
 | `owner@clinic.local` | `password` | Owner |
-| `provider@clinic.local` | `password` | Provider (Dr. Sarah Mansour) |
-| `specialist@clinic.local` | `password` | Provider (Dr. Rami Hassan) |
+| `provider@clinic.local` | `password` | Provider |
+| `specialist@clinic.local` | `password` | Provider |
 | `reception@clinic.local` | `password` | Receptionist |
 
 ---
 
 ## API Reference
 
-Full OpenAPI 3.0 spec: [`dental-clinic-api.yaml`](./dental-clinic-api.yaml)
+**Interactive docs:** `GET /api/docs` (Swagger UI, no auth required)
 
 **Base URL:** `http://localhost:8000/api/v1`
 
-**Authentication:** Bearer token (Sanctum)
-```
-Authorization: Bearer {token}
-```
+**Auth:** `Authorization: Bearer {token}`
 
-### Key endpoint groups
-
-| Group | Base path | Auth |
-|---|---|---|
-| Auth | `/auth/*` | Public + Sanctum |
-| 2FA | `/auth/2fa/*` | Sanctum + verified email |
-| Patients | `/patients/*` | `patients:read/write` |
-| Appointments | `/appointments/*` | `appointments:read/write` |
-| Clinical | `/encounters/*`, `/prescriptions/*`, etc. | `clinical:read/write` |
-| Billing | `/invoices/*`, `/payments/*` | `billing:read/write` |
-| Inventory | `/inventory-items/*` | `inventory:read/write` |
-| Notifications | `/notifications/*` | Sanctum |
-| Settings | `/settings` | Owner only |
-| Working hours | `/working-hours`, `/closures` | Sanctum / Owner |
-| Webhooks | `/webhooks/*` | Owner only |
-| AI | `/ai-results/*` | `clinical:write` |
-| Reports | `/reports/*` | Sanctum |
-
----
-
-## Project Structure
-
-```
-app/
-├── Events/          # AppointmentBooked, AiResultReady, RecallOverdue, LowStockAlert, ...
-├── Http/
-│   ├── Controllers/Api/    # 35+ API controllers
-│   ├── Requests/           # Form request validation classes
-│   └── Resources/          # API Resource transformers
-├── Jobs/            # Scheduled + queued jobs (reminders, PDF, webhooks)
-├── Listeners/       # Event listeners (notifications + webhook dispatch)
-├── Mail/            # Queued mailables (BaseMail, VerifyEmailMail, TwoFactorEnabledMail)
-├── Models/          # 40+ Eloquent models
-├── Notifications/   # InAppNotification (database channel)
-├── Policies/        # 28 authorization policies
-└── Services/        # FileStorageService, WebhookDispatcher, AI services
-
-database/
-├── migrations/      # Full schema — all tables
-├── seeders/         # CatalogueSeeder (prod-safe) + DevelopmentSeeder (dev only)
-└── factories/       # Factories with states for all major models
-
-resources/views/
-├── emails/          # Branded HTML email templates
-│   ├── layouts/base.blade.php
-│   └── auth/        # verify-email, two-factor-enabled
-└── pdf/             # PDF templates (invoice, prescription)
-
-routes/
-├── api.php          # All API routes (versioned under /v1/)
-├── channels.php     # Reverb private channel authorization
-└── console.php      # Scheduled task definitions
-```
-
----
-
-## Webhooks
-
-Register a webhook endpoint to receive real-time event notifications:
+### Patient Portal
 
 ```bash
-POST /api/v1/webhooks
-{
-  "url": "https://your-system.com/webhooks/dental",
-  "events": ["appointment.booked", "invoice.finalized", "payment.received"],
-  "description": "ERP integration"
-}
+POST /api/v1/portal/auth/request-otp  { "email": "patient@example.com" }
+POST /api/v1/portal/auth/verify-otp   { "email": "...", "code": "123456", "device_name": "iPhone" }
+GET  /api/v1/portal/me
+GET  /api/v1/portal/appointments
+GET  /api/v1/portal/invoices
+GET  /api/v1/portal/invoices/{id}/pdf
+GET  /api/v1/portal/prescriptions
 ```
 
-Every delivery is signed:
-```
-X-Webhook-Signature-256: sha256=<hmac>
-X-Webhook-Event: appointment.booked
-X-Webhook-Delivery: 42
-```
+### Webhook verification
 
-Verify in your receiver:
 ```php
 $expected = 'sha256=' . hash_hmac('sha256', $rawBody, $secret);
 if (!hash_equals($expected, $request->header('X-Webhook-Signature-256'))) {
@@ -245,44 +206,37 @@ if (!hash_equals($expected, $request->header('X-Webhook-Signature-256'))) {
 }
 ```
 
-Supported events: `appointment.booked`, `appointment.status_changed`, `invoice.finalized`, `payment.received`, `patient.created`, `ai.result_ready`, `recall.overdue`, `inventory.low_stock`
+### 2FA flow
+
+```
+POST /auth/2fa/enable      → secret + qr_code_uri
+POST /auth/2fa/confirm     { code: "123456" } → 8 recovery codes
+POST /auth/login           → { requires_2fa: true, two_factor_token: "..." }
+POST /auth/2fa/challenge   { two_factor_token, code, device_name } → Sanctum token
+```
 
 ---
 
-## 2FA Flow
+## Testing
 
+```bash
+php artisan test
 ```
-1. POST /auth/2fa/enable      → returns secret + qr_code_uri
-2. User scans QR in authenticator app
-3. POST /auth/2fa/confirm     → { code: "123456" }
-   → returns 8 recovery codes (shown ONCE — save them)
 
-Login with 2FA active:
-1. POST /auth/login            → { requires_2fa: true, two_factor_token: "..." }
-2. POST /auth/2fa/challenge    → { two_factor_token, code: "123456", device_name }
-   → returns full Sanctum token
-```
+30 test suites — auth, clinical, billing, AI, audit, patients, inventory, recalls, dashboard, portal, notifications, webhooks, mail dispatch, and more.
 
 ---
 
 ## Roadmap
 
-See [`ROADMAP.md`](./ROADMAP.md) for the full implementation status and what's planned next.
-
-**Current status: Steps 1–12 complete** — auth hardening, notifications, settings, PDF, scheduler, webhooks all implemented.
-
-**Next priorities:**
-- 13 missing transactional email templates
-- SMS / WhatsApp notifications
-- Treatment plan + report PDFs
-- Patient portal
+See [`ROADMAP.md`](./ROADMAP.md) — API fully complete. Remaining: SMS/WhatsApp, Arabic RTL UI, portal consent signing, CI/CD, S3 storage.
 
 ---
 
 ## License
 
-MIT License — see [`LICENSE`](./LICENSE)
+MIT — see [`LICENSE`](./LICENSE)
 
 ---
 
-*Built with Laravel 13 · Crystalline Dental PMS v3.0 · Last updated 2026-10-05*
+*Crystalline Dental PMS v3.0 · Laravel 13 · Last updated 2026-10-14*
