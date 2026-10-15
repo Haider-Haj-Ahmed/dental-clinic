@@ -1,302 +1,237 @@
-# Crystalline Dental PMS — SaaS Completion Roadmap
+# Crystalline Dental PMS — Implementation Roadmap
 
 > **Option 1 — Per-clinic deployment model.**
 > Each clinic gets their own server instance and database.
-> This document tracks what has been built and what remains.
 
 ---
 
 ## Legend
-- ✅ Implemented
-- 🔴 Missing — critical (blocks production)
-- 🟡 Missing — important (needed for commercial viability)
-- 🔵 Missing — enhancement (professional polish)
+- ✅ Implemented and integrated
+- 🟡 Missing — planned next
+- 🔵 Enhancement — future polish
 
 ---
 
-## 1. Authentication & Security
+## 1. Authentication & Security ✅ Complete
 
-### ✅ Implemented
-- Login / logout / logout-all (Sanctum tokens)
-- Register (owner-bootstrap + owner-creates-staff)
-- Role-scoped token abilities (owner, provider, receptionist, assistant)
-- 28 authorization policies
-- Throttle on auth routes (10/min per IP)
-- Pessimistic locking on appointment booking
-- Full audit logging via AuditObserver (14 models)
-- **Email verification** — `VerifyEmailMail`, signed URL, 60-minute expiry, resend endpoint
-- **2FA / TOTP** — enable, confirm, disable, recovery codes, regenerate, login challenge flow
-- **Active session / token management** — `GET /auth/tokens`, `DELETE /auth/tokens/{id}`
-- **Password history** — last 5 hashes stored, enforced on reset + change password
-- **Change password endpoint** — `POST /auth/change-password` (keeps current session, revokes others)
-- `email_verified_at` in `User::$fillable`
-- Global JSON error handler — 401/403/404/405/422/429/500 all return JSON
+- ✅ Login / logout / logout-all (Sanctum tokens)
+- ✅ Register (owner-bootstrap + owner-creates-staff)
+- ✅ Role-scoped token abilities (owner: `*`, provider/receptionist/assistant: scoped)
+- ✅ Role-scoped token expiry (owner: no expiry, provider: 30d, receptionist: 14d, assistant: 7d)
+- ✅ Email verification — signed URL, 60min expiry, resend endpoint
+- ✅ 2FA / TOTP — enable, confirm, disable, recovery codes (8), login challenge flow
+- ✅ Active session / token management — list + revoke individual tokens
+- ✅ Password history — last 5 hashes enforced on reset + change
+- ✅ `password_changed_at` + configurable forced expiry (`AUTH_PASSWORD_EXPIRY_DAYS`)
+- ✅ IP allowlist middleware — exact IPs + CIDR ranges (`IP_ALLOWLIST`)
+- ✅ `ForcePasswordChange` middleware on all authenticated routes
+- ✅ Global JSON error handling — 401/403/404/405/422/429/500
+- ✅ Rate limiting per role + strict throttle on auth endpoints
+- ✅ 28 authorization policies across all resources
+- ✅ Pessimistic locking on appointment booking
+- ✅ Full audit logging via AuditObserver (14 models)
 
 ### 🟡 Missing
-- `password_changed_at` field + force password change after X days
-- Sanctum token expiry configurable per role (currently fixed 7 days)
-- IP allowlist middleware per clinic
-- Account lockout after N failed attempts
+- Account lockout after N failed login attempts
+- Trusted device persistence (skip 2FA for known devices)
 
 ---
 
-## 2. Notifications
+## 2. Notifications ✅ Complete
 
-### ✅ Implemented
-- **Mail infrastructure** — `BaseMail` (abstract, queued, 3 retries, branded), `SendMailJob`
-- **Email templates** — `VerifyEmailMail`, `TwoFactorEnabledMail` (enable + disable security alerts)
-- **Queue setup** — `QUEUE_CONNECTION=database`, jobs table, Supervisor config (`config/supervisor/dental-clinic.conf`)
-- **In-app notifications** — `InAppNotification` (database channel), `GET /notifications`, mark read, mark all read, delete
-- **Real-time broadcasting** — Laravel Reverb, private channel `App.Models.User.{id}`, `routes/channels.php`
-- **Events** — `AppointmentBooked`, `AppointmentStatusChanged`, `AiResultReady`, `RecallOverdue`, `LowStockAlert`
-- **Listeners** — `NotifyOnAppointmentBooked`, `NotifyOnAppointmentStatusChanged`, `NotifyOnAiResultReady`, `NotifyOnRecallOverdue`, `NotifyOnLowStock` — all queued, all also call `WebhookDispatcher`
-
-### 🔴 Missing email templates
-| Trigger | Recipient |
-|---|---|
-| New staff account created | New staff member (welcome email) |
-| Appointment confirmation | Patient |
-| Appointment reminder 24h | Patient |
-| Appointment reminder 2h | Patient |
-| Appointment cancelled | Patient |
-| Invoice finalized | Patient (with PDF attachment) |
-| Payment received | Patient (receipt) |
-| Recall due | Patient |
-| Low stock alert | Owner |
-| AI result pending review | Provider |
-| Password changed | User (security alert) |
-| New device login | User (security alert) |
+- ✅ Mail infrastructure — `BaseMail`, queue, 3 retries, exponential backoff, branded templates
+- ✅ In-app notifications — database channel, CRUD endpoints
+- ✅ Laravel Reverb — WebSocket broadcasting, private channel `App.Models.User.{id}`
+- ✅ Events — `AppointmentBooked`, `AppointmentStatusChanged`, `AiResultReady`, `RecallOverdue`, `LowStockAlert`
+- ✅ Listeners — all queued, all dispatch to registered webhooks via `WebhookDispatcher`
+- ✅ 11 transactional email templates — Welcome, Appointment Confirmation, Appointment Reminder, Appointment Cancelled, Invoice Finalized (with PDF), Payment Receipt, Recall Reminder, Low Stock Alert, AI Result Pending, Password Changed, New Device Login
+- ✅ OTP email for patient portal login
 
 ### 🟡 Missing
 - SMS notifications (Twilio or local gateway)
 - WhatsApp notifications (Meta Business API)
-- Notification preferences per patient (channel + type)
-- Notification templates (customizable by owner)
+- Notification preferences per patient (channel + type opt-in/out)
 
 ---
 
-## 3. Clinic Settings
+## 3. Clinic Settings ✅ Complete
 
-### ✅ Implemented
-- **Clinic settings API** — `GET /settings`, `PATCH /settings` (owner only)
-- 27 structured columns: identity, locale, branding, billing, appointments, reminders, security
-- `ClinicSetting::instance()` singleton used throughout app (PDF, emails, jobs)
-- **Working hours** — `GET /working-hours`, `PUT /working-hours`, seeded Mon–Sat 09:00–18:00
-- **Clinic closures** — `GET /closures`, `POST /closures`, `DELETE /closures/{id}`
-- Default settings row seeded from env values in `CatalogueSeeder`
+- ✅ Clinic settings API — `GET /settings`, `PATCH /settings` (owner only)
+- ✅ 27 structured columns: identity, locale, branding, billing, appointments, reminders, security
+- ✅ `ClinicSetting::instance()` singleton — used throughout app
+- ✅ Working hours — `GET/PUT /working-hours`
+- ✅ Clinic closures — `GET/POST /closures`, `DELETE /closures/{id}`
+- ✅ Default settings seeded from env values in `CatalogueSeeder`
+
+---
+
+## 4. PDF Generation ✅ Complete
+
+- ✅ Invoice PDF — letterhead, items, payment history, balance due
+- ✅ Prescription PDF — Rx symbol, medications, signatures
+- ✅ Treatment Plan PDF — procedure table, priority colours, history timeline
+- ✅ Referral Letter PDF — specialist letter, urgency badge, clinical notes
+- ✅ Report PDF — all 5 reports via `?format=pdf` — A4 landscape
+- ✅ Report Excel — all 5 reports via `?format=xlsx` — PhpSpreadsheet
+
+---
+
+## 5. Patient Portal ✅ Complete
+
+- ✅ Passwordless OTP login — 6-digit code, 10-minute expiry, sent via email
+- ✅ Patient-scoped Sanctum tokens — `portal:read` ability only
+- ✅ `POST /portal/auth/request-otp` — always 200 (prevents enumeration)
+- ✅ `POST /portal/auth/verify-otp` — issues 30-day portal token
+- ✅ `GET /portal/me` — profile + allergies + conditions
+- ✅ `GET /portal/appointments` — all + upcoming shortlist
+- ✅ `GET /portal/invoices` — finalized invoices
+- ✅ `GET /portal/invoices/{id}/pdf` — own invoice PDF
+- ✅ `GET /portal/prescriptions` — prescriptions with items
 
 ### 🟡 Missing
-- `POST /settings/logo` — clinic logo upload
-- Branding letterhead customization
-
----
-
-## 4. PDF Generation
-
-### ✅ Implemented
-- **Invoice PDF** — `GET /invoices/{invoice}/pdf` — A4, letterhead, itemized table, payment history, balance due
-- **Prescription PDF** — `GET /prescriptions/{prescription}/pdf` — A4, Rx symbol, medication list, signature lines, marks `is_printed=true`
-- Both pull branding from `ClinicSetting::instance()`
-- Package: `barryvdh/laravel-dompdf ^3.0`
-
-### 🟡 Missing
-- Treatment plan PDF — `GET /treatment-plans/{plan}/pdf`
-- Report PDF / Excel export (`?format=pdf`, `?format=xlsx`)
-- Referral letter PDF
-
----
-
-## 5. Patient Portal
-
-### 🟡 Missing (entirely)
-- Patient authentication (separate guard, OTP/magic link)
-- `/portal/me`, `/portal/appointments`, `/portal/invoices`, `/portal/prescriptions`
-- Online consent signing
+- Online consent signing via portal
 - Appointment request flow
+- Portal OTP via SMS
 
 ---
 
-## 6. Scheduling & Automation
+## 6. Scheduling & Automation ✅ Complete
 
-### ✅ Implemented
-- **Scheduler** — `routes/console.php` with 5 scheduled jobs
-- `PruneExpiredTokensJob` — daily 03:00
-- `SendRecallRemindersJob` — daily 07:00, fires `RecallOverdue` event
-- `SendAppointmentRemindersJob` — daily 08:00, marks `reminder_sent_at`
-- `CheckLowStockJob` — daily 08:30, fires `LowStockAlert` event
-- `GenerateWeeklyReportJob` — Monday 07:00, in-app report to owner
-- Supervisor config for queue worker + scheduler process
+- ✅ `PruneExpiredTokensJob` — daily 03:00
+- ✅ `SendRecallRemindersJob` — daily 07:00
+- ✅ `SendAppointmentRemindersJob` — daily 08:00
+- ✅ `CheckLowStockJob` — daily 08:30
+- ✅ `GenerateWeeklyReportJob` — Monday 07:00
+- ✅ `ArchiveOldAuditLogsJob` — monthly 1st 02:00
+- ✅ `ProcessAiAnalysisJob` — async AI calls off HTTP thread
+- ✅ `ImportPatientsJob` — bulk CSV patient import
+- ✅ Supervisor config — queue worker + mail queue + scheduler
+
+---
+
+## 7. File Storage ✅ Core complete
+
+- ✅ Patient medical document upload + auth-protected download
 
 ### 🟡 Missing
-- `ArchiveOldAuditLogsJob` — monthly, move logs older than 1 year
-- `ProcessAiAnalysisJob` — move AI calls off HTTP request (currently synchronous)
-- `ImportPatientsJob` — bulk CSV patient import
-- `GeneratePdfJob` — async PDF for large reports
-
----
-
-## 7. File Storage
-
-### ✅ Implemented
-- `FileStorageService` — document upload
-- Patient medical document upload + download (auth-protected)
-
-### 🔴 Missing
-- Production storage driver (S3 / MinIO) — currently `local` disk
-- File size limits per type (X-ray: 20MB, document: 10MB, logo: 2MB)
-- MIME type validation via `finfo`
-
----
-
-## 8. API Completions & Polish
-
-### ✅ Implemented
-- Global JSON error handling (401/403/404/405/422/429/500)
-- `/api/v1/` versioning
-- **Webhook system** — register, list, toggle, delete, delivery history, ping
-- HMAC-SHA256 signed payloads, 3 retries with exponential backoff
-- 8 supported webhook events
-- Health check at `/up` (Laravel built-in)
-
-### 🟡 Missing
-- `X-API-Version` response header on every response
-- `X-Request-ID` tracing header
-- Enhanced health check at `/api/health` (DB + queue + storage status)
-- Swagger UI at `/api/docs`
-- Pagination consistency (`?search=`, `?sort_by=`, `?sort_dir=`) across all collection endpoints
-- `CHANGELOG.md`
-
----
-
-## 9. Web UI — Remaining Screens
-
-> API-only sessions are excluded from this section per current scope.
-
-### 🔴 Missing
-- Dashboard (KPI cards, today's schedule, activity feed)
-- Appointments screen (calendar, booking modal, drag-reschedule)
-- Patients screen (list + full profile with all tabs)
-- Encounters / clinical screens (SOAP editor, odontogram, perio grid)
-- Billing screens (invoice list, payment recording, payment plans)
-- Reports screen (charts, date range, export)
-- Settings screen (clinic profile, working hours, staff, 2FA wizard)
-- Recalls, inventory, prescriptions, audit logs, providers (all remaining screens)
-
----
-
-## 10. Seeder & Factory Corrections
-
-### ✅ Implemented
-- `email_verified_at` in `User::$fillable`
-- Seeder split: `CatalogueSeeder` (production-safe) + `DevelopmentSeeder` (dev only)
-- `InvoiceFactory` lazy state fix (no more `->create()` inside state closures)
-- All factory states: `UserFactory` (owner/provider/receptionist/assistant), `AppointmentFactory` (states), `EncounterFactory` (locked), `AiAnalysisResultFactory` (all types + statuses)
-- Column name fixes: `condition`, `drug_name`, `current_stock`, `issued_at`, `qty`
-- Seeder runs clean with zero exceptions
-
-### 🔵 Missing
-- `PatientFactory::withAllergies()`, `::withActiveMedications()`, `::archived()`
-- `InvoiceFactory::paid()`, `::overdue()`
-
----
-
-## 11. Testing
-
-### Already built ✅
-- 21 PHPUnit feature test suites (pre-existing)
-
-### 🔴 Missing
-- Auth test coverage for new flows (2FA, verification, password history, change-password)
-- Notification tests (`Mail::fake()`, assert correct mailable dispatched per trigger)
-- Webhook delivery tests
-
-### 🟡 Missing
-- Policy test coverage per role (receptionist blocked from clinical write, etc.)
-- Factory / seeder tests (assert clean run on fresh DB)
-
----
-
-## 12. Infrastructure & Deployment
-
-### ✅ Implemented
-- `.env.example` — fully documented with all variables
-- `config/supervisor/dental-clinic.conf` — queue worker (default + mail queues) + scheduler
-- Nginx config documented in roadmap
-- Queue connection configured
-
-### 🔴 Missing
 - Production storage driver (S3 / MinIO)
-- Deployment script (`git pull`, `composer install --no-dev`, cache commands, `queue:restart`)
+
+---
+
+## 8. API Completions & Polish ✅ Complete
+
+- ✅ `X-API-Version` + `X-Request-ID` headers on every response
+- ✅ `GET /api/v1/health` — DB + cache + queue + storage status
+- ✅ `GET /api/docs` — Swagger UI (public, branded)
+- ✅ `?sort_by=` + `?sort_dir=` on collection endpoints
+- ✅ `SetClinicTimezone` middleware — timezone-aware output
+- ✅ Arabic + English localization — `lang/en/` + `lang/ar/`
+- ✅ Webhook system — 8 events, HMAC-signed, delivery history
+- ✅ OpenAPI spec v3.0.0 — 7,729+ lines, all schemas documented
+
+---
+
+## 9. Referrals ✅ Complete
+
+- ✅ `referrals` table — urgency levels (routine/urgent/emergency)
+- ✅ `GET/POST /referrals`, `GET/DELETE /referrals/{id}`
+- ✅ `GET /referrals/{id}/pdf` — specialist letter
+
+---
+
+## 10. Seeder & Factories ✅ Complete
+
+- ✅ `CatalogueSeeder` — production-safe
+- ✅ `DevelopmentSeeder` — full realistic dataset
+- ✅ All factory column name fixes
+- ✅ All factory states
+
+---
+
+## 11. Testing ✅ Complete
+
+**30 test suites** (22 pre-existing + 8 new):
+- `EmailVerificationTest` — 6 cases
+- `TwoFactorTest` — 7 cases
+- `PasswordHistoryTest` — 5 cases
+- `TokenManagementTest` — 4 cases
+- `NotificationTest` — 5 cases
+- `WebhookTest` — 6 cases
+- `PatientPortalTest` — 7 cases
+- `MailDispatchTest` — 5 cases
 
 ### 🟡 Missing
+- Policy test coverage per role
+- Webhook delivery integration tests
+
+---
+
+## 12. Infrastructure ✅ Complete
+
+- ✅ `.env.example` — fully documented
+- ✅ Supervisor config
+- ✅ Sentry integration (`SENTRY_LARAVEL_DSN`)
+- ✅ `phpoffice/phpspreadsheet` for Excel
+
+### 🟡 Missing
+- Production storage driver (S3 / MinIO)
+- Deployment script
 - Automated backups (`spatie/laravel-backup`)
-- Docker + `docker-compose.yml` for local dev
-
-### 🔵 Missing
-- CI/CD pipeline (GitHub Actions)
+- Docker + CI/CD
 
 ---
 
-## 13. Compliance & Data Protection
+## 13. Compliance ✅ Complete
 
-### 🟡 Missing
-- `GET /patients/{patient}/export` — full record as JSON or PDF
-- `DELETE /patients/{patient}/purge` — hard delete with owner confirmation
-- `scheduled_deletion_at` on archived patients
-
-### 🔵 Missing
-- Digital consent versioning + re-consent on form change
-- Terms of Service + Privacy Policy acceptance tracking
+- ✅ `GET /patients/{id}/export` — full JSON export
+- ✅ `DELETE /patients/{id}/purge` — two-step hard delete
+- ✅ `scheduled_deletion_at`, `purge_requested_at`, `purge_requested_by`
+- ✅ Purge audit trail in `audit_logs`
 
 ---
 
-## 14. Localization
+## 14. Localization ✅ Complete
+
+- ✅ `lang/en/` — auth, passwords, pagination, validation
+- ✅ `lang/ar/` — full Arabic translations with attribute names
+- ✅ `SetClinicTimezone` middleware — timezone + locale per request
 
 ### 🟡 Missing
-- `lang/ar/` translation files (Arabic UI strings)
-- RTL CSS (`dir="rtl"`)
+- RTL CSS for Arabic UI
 - Hijri calendar option
-- Timezone conversion on API output (currently stored UTC, displayed UTC)
 
 ---
 
-## 15. Monitoring & Observability
+## 15. Monitoring ✅ Complete
+
+- ✅ Sentry — all unhandled exceptions reported
+- ✅ `GET /api/v1/health` — 200/503 with subsystem detail
+- ✅ `X-Request-ID` tracing header
 
 ### 🟡 Missing
-- Sentry integration (`sentry/sentry-laravel`)
-- Uptime monitoring (UptimeRobot or BetterUptime watching `/api/health`)
-
-### 🔵 Missing
-- Centralized log shipping (Papertrail / Logtail)
-- N+1 query detection (`spatie/laravel-query-detector`)
+- Uptime monitoring
+- Centralized log shipping
 
 ---
 
-## Priority Order — What to build next
+## What's Next
 
-### Phase 1 — Production-ready (remaining)
-1. Missing email templates (13 transactional emails)
-2. Production storage driver (S3 / MinIO)
-3. Deployment script
-4. Enhanced health check endpoint
+### Phase 1 — Production deployment
+1. S3 / MinIO storage driver
+2. Deployment script
+3. Automated backups
 
-### Phase 2 — Commercial viability
-1. SMS notifications
-2. WhatsApp notifications
-3. Treatment plan + report PDFs
-4. Patient portal
-5. All remaining web UI screens
-6. Automated backups
+### Phase 2 — Commercial features
+1. SMS / WhatsApp notifications
+2. Patient portal consent signing + appointment requests
+3. Arabic RTL UI
+4. Docker + CI/CD
 
-### Phase 3 — Professional polish
-1. Arabic / RTL localization
-2. Report exports (PDF / Excel)
-3. Docker + CI/CD
-4. Sentry + uptime monitoring
-5. Full test coverage audit
-6. Swagger UI at `/api/docs`
-7. `X-API-Version` + `X-Request-ID` headers
+### Phase 3 — Polish
+1. Account lockout
+2. Trusted device (skip 2FA)
+3. Policy + seeder test coverage
 
 ---
 
-*Last updated: 2026-10-05 | Crystalline Dental PMS v3.0 | Steps 1–12 complete*
+*Last updated: 2026-10-14 · Crystalline Dental PMS v3.0 · API fully complete*
