@@ -11,11 +11,12 @@ class TwoFactorChallengeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Either a 6-digit TOTP code or an 8-character recovery code
+            // The short-lived token returned by login when requires_2fa: true
             'two_factor_token' => ['required', 'string'],
+            // Either a 6-digit TOTP or an 8-char recovery code
             'code'             => ['required_without:recovery_code', 'nullable', 'string', 'digits:6'],
             'recovery_code'    => ['required_without:code', 'nullable', 'string'],
-            'device_name'      => ['required', 'string', 'max:255'],
+            // device_name was removed: the controller uses the name cached at login time
         ];
     }
 }
