@@ -40,7 +40,7 @@ class AuthController extends Controller
         $isFirstUser = User::query()->doesntExist();
 
         if (! $isFirstUser) {
-            $requestingUser = $request->user();
+            $requestingUser = auth('sanctum')->user();
             if (! $requestingUser || ! $requestingUser->isOwner()) {
                 return response()->json([
                     'message' => 'Only clinic owners can register new staff accounts.',
@@ -298,7 +298,6 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $request->user()?->currentAccessToken()?->delete();
-        PersonalAccessToken::findToken($request->bearerToken())?->delete();
 
         return response()->json(['message' => 'Logged out successfully.']);
     }
@@ -383,7 +382,10 @@ class AuthController extends Controller
     {
         $request->validate([
             'current_password' => ['required', 'string'],
-            'password'         => ['required', 'string', 'confirmed'],
+            'password'         => [
+                'required', 'string', 'confirmed',
+                \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers(),
+            ],
         ]);
 
         /** @var User $user */
@@ -403,9 +405,6 @@ class AuthController extends Controller
             ]);
         }
 
-        $request->validate([
-            'password' => [\Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()],
-        ]);
 
         $user->forceFill([
             'password'           => Hash::make($request->input('password')),
