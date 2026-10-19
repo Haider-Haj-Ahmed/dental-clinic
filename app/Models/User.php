@@ -11,6 +11,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\VerifyEmailMail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -212,6 +214,20 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_confirmed_at'   => null,
             'two_factor_recovery_codes' => null,
         ])->save();
+    }
+
+    /* ── Email verification ──────────────────────────────────── */
+
+    /**
+     * Override the default MustVerifyEmail notification so that
+     * the Registered event uses our custom VerifyEmailMail
+     * (which builds signed URLs with the 'api.auth.email.verify'
+     * route name) instead of Laravel's built-in notification that
+     * looks for the non-existent 'verification.verify' route.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        Mail::to($this->email, $this->name)->queue(new VerifyEmailMail($this));
     }
 
     /* ── Token abilities ─────────────────────────────────────── */
