@@ -181,10 +181,12 @@ class TwoFactorController extends Controller
             ], 422);
         }
 
+        $remaining = $user->getRecoveryCodes()->count();
+
         return response()->json([
-            'remaining_codes' => $user->getRecoveryCodes()->count(),
-            'warning'         => $remaining = $user->getRecoveryCodes()->count() <= 2
-                ? 'You have ' . $remaining . ' recovery codes left. Regenerate them soon.'
+            'remaining_codes' => $remaining,
+            'warning'         => $remaining <= 2
+                ? "You have {$remaining} recovery codes left. Regenerate them soon."
                 : null,
         ]);
     }
