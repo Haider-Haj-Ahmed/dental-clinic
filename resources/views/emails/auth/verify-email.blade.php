@@ -11,7 +11,7 @@
     </p>
 
     <p style="text-align: center; margin: 32px 0;">
-        <a href="{{ $verificationUrl }}" class="btn" target="_blank">
+        <a href="{!! $verificationUrl !!}" class="btn" target="_blank">
             Verify Email Address
         </a>
     </p>
@@ -27,7 +27,7 @@
 
     <p style="font-size: 13px; color: #94a3b8;">
         If the button above doesn't work, copy and paste this URL into your browser:<br>
-        <a href="{{ $verificationUrl }}" style="color: #4fdbcc; word-break: break-all; font-size: 12px;">
+        <a href="{!! $verificationUrl !!}" style="color: #4fdbcc; word-break: break-all; font-size: 12px;">
             {!! $verificationUrl !!}
         </a>
     </p>
