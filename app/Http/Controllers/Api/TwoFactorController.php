@@ -100,7 +100,7 @@ class TwoFactorController extends Controller
         }
 
         $secret = decrypt($user->two_factor_secret);
-        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'));
+        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'), null, 1);
 
         if (! $valid) {
             return response()->json([
@@ -145,7 +145,7 @@ class TwoFactorController extends Controller
         }
 
         $secret = decrypt($user->two_factor_secret);
-        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'));
+        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'), null, 1);
 
         if (! $valid) {
             return response()->json([
@@ -210,7 +210,7 @@ class TwoFactorController extends Controller
         }
 
         $secret = decrypt($user->two_factor_secret);
-        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'));
+        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'), null, 1);
 
         if (! $valid) {
             return response()->json([
