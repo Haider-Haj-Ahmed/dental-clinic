@@ -13,6 +13,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\VerifyEmailMail;
+use App\Mail\ResetPasswordMail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -228,6 +229,16 @@ class User extends Authenticatable implements MustVerifyEmail
     public function sendEmailVerificationNotification(): void
     {
         Mail::to($this->email, $this->name)->queue(new VerifyEmailMail($this));
+    }
+
+    /**
+     * Override to use our custom ResetPasswordMail instead of
+     * Laravel's built-in notification that requires the named
+     * route 'password.reset' (which doesn't exist in this API).
+     */
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        Mail::to($this->email, $this->name)->queue(new ResetPasswordMail($this, $token));
     }
 
     /* ── Token abilities ─────────────────────────────────────── */
