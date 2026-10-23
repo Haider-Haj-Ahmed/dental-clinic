@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\WelcomeMail;
@@ -38,7 +39,7 @@ class UserController extends Controller
         return UserResource::collection($users);
     }
 
-    public function store(StoreUserRequest $request): UserResource
+    public function store(StoreUserRequest $request): JsonResponse
     {
         $data = $request->validated();
         $user = User::query()->create($data);
@@ -47,7 +48,7 @@ class UserController extends Controller
         event(new Registered($user));
         Mail::to($user->email, $user->name)->queue(new WelcomeMail($user, $data['password']));
 
-        return UserResource::make($user)->response()->setStatusCode(201);
+        return response()->json(UserResource::make($user), 201);
     }
 
     public function show(User $user): UserResource
