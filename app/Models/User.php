@@ -228,7 +228,11 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function sendEmailVerificationNotification(): void
     {
-        Mail::to($this->email, $this->name)->queue(new VerifyEmailMail($this));
+        // No-op: AppServiceProvider already listens to the Registered event
+        // and queues VerifyEmailMail correctly. The default Laravel listener
+        // (SendEmailVerificationNotification) calls this method and previously
+        // caused a RouteNotFoundException for 'verification.verify'. Making
+        // this a no-op neutralises that without duplicating the mail job.
     }
 
     /**
