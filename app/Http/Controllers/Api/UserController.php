@@ -7,9 +7,12 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\WelcomeMail;
 
 class UserController extends Controller
 {
@@ -37,9 +40,14 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request): UserResource
     {
-        $user = User::query()->create($request->validated());
+        $data = $request->validated();
+        $user = User::query()->create($data);
 
-        return UserResource::make($user);
+        // Notify the new staff member of their account
+        event(new Registered($user));
+        Mail::to($user->email, $user->name)->queue(new WelcomeMail($user, $data['password']));
+
+        return UserResource::make($user)->response()->setStatusCode(201);
     }
 
     public function show(User $user): UserResource
