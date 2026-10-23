@@ -9,6 +9,7 @@ use App\Http\Resources\ProviderResource;
 use App\Models\Provider;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class ProviderController extends Controller
@@ -21,7 +22,7 @@ class ProviderController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $providers = Provider::query()
-            ->with('user')
+            ->with('user', 'operatory')
             ->when($request->filled('is_active'), function ($query) use ($request) {
                 $query->where('is_active', $request->boolean('is_active'));
             })
@@ -41,23 +42,23 @@ class ProviderController extends Controller
         return ProviderResource::collection($providers);
     }
 
-    public function store(StoreProviderRequest $request): ProviderResource
+    public function store(StoreProviderRequest $request): JsonResponse
     {
         $provider = Provider::query()->create($request->validated());
 
-        return ProviderResource::make($provider->load('user'));
+        return response()->json(ProviderResource::make($provider->load('user', 'operatory')), 201);
     }
 
     public function show(Provider $provider): ProviderResource
     {
-        return ProviderResource::make($provider->load('user'));
+        return ProviderResource::make($provider->load('user', 'operatory'));
     }
 
     public function update(UpdateProviderRequest $request, Provider $provider): ProviderResource
     {
         $provider->update($request->validated());
 
-        return ProviderResource::make($provider->refresh()->load('user'));
+        return ProviderResource::make($provider->refresh()->load('user', 'operatory'));
     }
 
     public function destroy(Provider $provider): Response
