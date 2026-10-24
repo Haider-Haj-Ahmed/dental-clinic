@@ -3983,25 +3983,25 @@ components:
               data:
                 $ref: '#/components/schemas/PaymentMethod'
 
-  PaymentPlanItem:
-    description: Single payment plan
-    content:
-      application/json:
-        schema:
-          type: object
-          properties:
-            data:
-              $ref: '#/components/schemas/PaymentPlan'
+    PaymentPlanItem:
+      description: Single payment plan
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/PaymentPlan'
 
-  PrescriptionItem:
-    description: Single prescription
-    content:
-      application/json:
-        schema:
-          type: object
-          properties:
-            data:
-              $ref: '#/components/schemas/Prescription'
+    PrescriptionItem:
+      description: Single prescription
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/Prescription'
 
     ProviderList:
       description: Paginated list
