@@ -4369,15 +4369,6 @@ components:
                     items:
                       $ref: '#/components/schemas/PaymentPlan'
 
-    PaymentPlanItem:
-      description: Single payment plan
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              data:
-                $ref: '#/components/schemas/PaymentPlan'
 
     InventoryItemList:
       description: Paginated list
@@ -4583,15 +4574,6 @@ components:
                     items:
                       $ref: '#/components/schemas/Prescription'
 
-    PrescriptionItem:
-      description: Single prescription
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              data:
-                $ref: '#/components/schemas/Prescription'
 
     AiResultList:
       description: Paginated list
@@ -4910,12 +4892,6 @@ components:
             type: array
             items:
               type: string
-
-    MessageResponse:
-      type: object
-      properties:
-        message:
-          type: string
 
     # ── Enums ─────────────────────────────────────────────────────────────────
 
