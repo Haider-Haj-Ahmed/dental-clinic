@@ -30,11 +30,11 @@ class OperatoryController extends Controller
         return OperatoryResource::collection($operatories);
     }
 
-    public function store(StoreOperatoryRequest $request): OperatoryResource
+    public function store(StoreOperatoryRequest $request): JsonResponse
     {
         $operatory = Operatory::query()->create($request->validated());
 
-        return OperatoryResource::make($operatory);
+        return response()->json(OperatoryResource::make($operatory), 201);
     }
 
     public function show(Operatory $operatory): OperatoryResource
