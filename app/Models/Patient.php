@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Invoice;
+use App\Models\PaymentPlan;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -24,6 +26,8 @@ class Patient extends Authenticatable
         'address',
         'emergency_contact_name',
         'emergency_contact_phone',
+        'medical_alerts',
+        'blood_type',
         'notes',
         'is_active',
     ];
@@ -111,6 +115,16 @@ class Patient extends Authenticatable
     public function recalls(): HasMany
     {
         return $this->hasMany(Recall::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    public function paymentPlans(): HasMany
+    {
+        return $this->hasMany(PaymentPlan::class);
     }
 
     public function otpCodes(): HasMany
