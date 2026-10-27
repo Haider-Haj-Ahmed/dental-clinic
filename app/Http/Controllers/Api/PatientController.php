@@ -45,7 +45,7 @@ class PatientController extends Controller
         return PatientResource::collection($patients);
     }
 
-    public function store(StorePatientRequest $request): PatientResource
+    public function store(StorePatientRequest $request): JsonResponse
     {
         $patient = Patient::query()->create($request->validated());
 
@@ -59,7 +59,7 @@ class PatientController extends Controller
             'created_at'  => $patient->created_at->toIso8601String(),
         ]);
 
-        return PatientResource::make($patient);
+        return response()->json(PatientResource::make($patient), 201);
     }
 
     public function show(Patient $patient): PatientResource
@@ -123,7 +123,7 @@ class PatientController extends Controller
             'medications',
             'consents',
             'medicalCases',
-            'documents',
+            'medicalDocuments',
             'appointments.provider',
             'appointments.appointmentType',
             'encounters.provider',
@@ -149,6 +149,7 @@ class PatientController extends Controller
                 'emergency_contact_name' => $patient->emergency_contact_name,
                 'emergency_contact_phone'=> $patient->emergency_contact_phone,
                 'blood_type'             => $patient->blood_type,
+                'medical_alerts'         => $patient->medical_alerts,
                 'notes'                  => $patient->notes,
                 'is_active'              => $patient->is_active,
                 'created_at'             => $patient->created_at->toIso8601String(),
@@ -159,7 +160,7 @@ class PatientController extends Controller
             'medications'        => $patient->medications,
             'consents'           => $patient->consents,
             'medical_cases'      => $patient->medicalCases,
-            'documents'          => $patient->documents->map(fn ($d) => collect($d)->except(['file_path'])),
+            'documents'          => $patient->medicalDocuments->map(fn ($d) => collect($d)->except(['file_path'])),
             'appointments'       => $patient->appointments,
             'encounters'         => $patient->encounters,
             'invoices'           => $patient->invoices,
@@ -211,17 +212,31 @@ class PatientController extends Controller
         }
 
         // Step 2 — Execute hard delete
+        // Ensure step 1 was called (scheduled_deletion_at must be set)
+        if (! $patient->scheduled_deletion_at) {
+            return response()->json([
+                'message' => 'Purge not scheduled. Call DELETE /patients/' . $patient->id . '/purge first to schedule deletion.',
+            ], 422);
+        }
+
         $patientId   = $patient->id;
         $patientName = $patient->first_name . ' ' . $patient->last_name;
 
         // Hard delete all related records
+        // Billing — must go first due to restrictOnDelete() FK on patient_id
+        $patient->invoices()->each(function ($invoice) {
+            $invoice->payments()->forceDelete();
+            $invoice->items()->forceDelete();
+            $invoice->forceDelete();
+        });
+        $patient->paymentPlans()->each(fn ($pp) => $pp->installments()->forceDelete() && $pp->forceDelete());
         $patient->contacts()->forceDelete();
         $patient->allergies()->forceDelete();
         $patient->conditions()->forceDelete();
         $patient->medications()->forceDelete();
         $patient->consents()->forceDelete();
         $patient->medicalCases()->forceDelete();
-        $patient->documents()->forceDelete();
+        $patient->medicalDocuments()->forceDelete();
         $patient->recalls()->forceDelete();
         $patient->appointments()->forceDelete();
         $patient->encounters()->forceDelete();
