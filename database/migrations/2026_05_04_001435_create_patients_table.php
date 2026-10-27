@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('emergency_contact_name')->nullable();
             $table->string('emergency_contact_phone', 30)->nullable();
             $table->text('medical_alerts')->nullable();
+            $table->string('blood_type', 10)->nullable();
             $table->text('notes')->nullable();
             $table->boolean('is_active')->default(true)->index();
             $table->timestamps();
