@@ -20,6 +20,8 @@ class StorePatientRequest extends FormRequest
             'address'                 => ['nullable', 'string'],
             'emergency_contact_name'  => ['nullable', 'string', 'max:255'],
             'emergency_contact_phone' => ['nullable', 'string', 'max:30'],
+            'blood_type'              => ['nullable', 'string', 'in:A+,A-,B+,B-,AB+,AB-,O+,O-'],
+            'medical_alerts'          => ['nullable', 'string'],
             'notes'                   => ['nullable', 'string'],
             'is_active'               => ['sometimes', 'boolean'],
         ];
