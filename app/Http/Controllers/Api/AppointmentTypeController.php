@@ -9,6 +9,7 @@ use App\Http\Resources\AppointmentTypeResource;
 use App\Models\AppointmentType;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class AppointmentTypeController extends Controller
@@ -29,11 +30,11 @@ class AppointmentTypeController extends Controller
         return AppointmentTypeResource::collection($types);
     }
 
-    public function store(StoreAppointmentTypeRequest $request): AppointmentTypeResource
+    public function store(StoreAppointmentTypeRequest $request): JsonResponse
     {
         $type = AppointmentType::query()->create($request->validated());
 
-        return AppointmentTypeResource::make($type);
+        return response()->json(AppointmentTypeResource::make($type), 201);
     }
 
     public function show(AppointmentType $appointmentType): AppointmentTypeResource
