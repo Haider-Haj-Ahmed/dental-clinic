@@ -9,6 +9,7 @@ use App\Http\Resources\ProcedureCodeResource;
 use App\Models\ProcedureCode;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class ProcedureCodeController extends Controller
@@ -35,11 +36,11 @@ class ProcedureCodeController extends Controller
         return ProcedureCodeResource::collection($codes);
     }
 
-    public function store(StoreProcedureCodeRequest $request): ProcedureCodeResource
+    public function store(StoreProcedureCodeRequest $request): JsonResponse
     {
         $code = ProcedureCode::query()->create($request->validated());
 
-        return ProcedureCodeResource::make($code);
+        return response()->json(ProcedureCodeResource::make($code), 201);
     }
 
     public function show(ProcedureCode $procedureCode): ProcedureCodeResource
