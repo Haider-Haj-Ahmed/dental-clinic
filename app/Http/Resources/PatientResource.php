@@ -21,6 +21,8 @@ class PatientResource extends JsonResource
             'address'                 => $this->address,
             'emergency_contact_name'  => $this->emergency_contact_name,
             'emergency_contact_phone' => $this->emergency_contact_phone,
+            'blood_type'              => $this->blood_type,
+            'medical_alerts'          => $this->medical_alerts,
             'notes'                   => $this->notes,
             'is_active'               => $this->is_active,
             'created_at'              => $this->created_at,
