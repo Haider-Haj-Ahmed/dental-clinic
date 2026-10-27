@@ -20,6 +20,8 @@ class UpdatePatientRequest extends FormRequest
             'address'                 => ['sometimes', 'nullable', 'string'],
             'emergency_contact_name'  => ['sometimes', 'nullable', 'string', 'max:255'],
             'emergency_contact_phone' => ['sometimes', 'nullable', 'string', 'max:30'],
+            'blood_type'              => ['sometimes', 'nullable', 'string', 'in:A+,A-,B+,B-,AB+,AB-,O+,O-'],
+            'medical_alerts'          => ['sometimes', 'nullable', 'string'],
             'notes'                   => ['sometimes', 'nullable', 'string'],
             'is_active'               => ['sometimes', 'boolean'],
         ];
