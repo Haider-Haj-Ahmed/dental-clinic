@@ -6,6 +6,7 @@ use App\Models\AppointmentType;
 use App\Models\ClinicSetting;
 use App\Models\WorkingHour;
 use App\Models\Operatory;
+use App\Models\PaymentMethod;
 use Illuminate\Database\Seeder;
 
 class CatalogueSeeder extends Seeder
@@ -76,6 +77,20 @@ class CatalogueSeeder extends Seeder
                 ['name' => $data['name']],
                 $data
             );
+        }
+
+
+        // ── Payment methods ────────────────────────────────────────
+        $paymentMethods = [
+            'Cash (SYP)',
+            'Cash (USD)',
+            'Syriatel Cash',
+            'MTN Cash',
+            'Bank Transfer',
+        ];
+
+        foreach ($paymentMethods as $name) {
+            PaymentMethod::query()->firstOrCreate(['name' => $name], ['is_active' => true]);
         }
 
         // ── Working hours (Sun–Sat, clinic open Sat–Thu) ───────────────
