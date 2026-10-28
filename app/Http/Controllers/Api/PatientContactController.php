@@ -10,6 +10,7 @@ use App\Models\Patient;
 use App\Models\PatientContact;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class PatientContactController extends Controller
@@ -23,13 +24,13 @@ class PatientContactController extends Controller
         );
     }
 
-    public function store(StorePatientContactRequest $request, Patient $patient): PatientContactResource
+    public function store(StorePatientContactRequest $request, Patient $patient): JsonResponse
     {
         $this->authorize('create', PatientContact::class);
 
         $contact = $patient->contacts()->create($request->validated());
 
-        return PatientContactResource::make($contact);
+        return response()->json(PatientContactResource::make($contact), 201);
     }
 
     public function show(Patient $patient, PatientContact $contact): PatientContactResource
