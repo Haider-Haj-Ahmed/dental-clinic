@@ -35,7 +35,7 @@ class PatientMedicalDocumentController extends Controller
         return PatientMedicalDocumentResource::collection($documents);
     }
 
-    public function store(StorePatientMedicalDocumentRequest $request, Patient $patient): PatientMedicalDocumentResource
+    public function store(StorePatientMedicalDocumentRequest $request, Patient $patient): JsonResponse
     {
         $this->authorize('create', PatientMedicalDocument::class);
 
@@ -59,9 +59,9 @@ class PatientMedicalDocumentController extends Controller
 
         $document = PatientMedicalDocument::query()->create($payload);
 
-        return PatientMedicalDocumentResource::make(
+        return response()->json(PatientMedicalDocumentResource::make(
             $document->load(['provider', 'uploadedBy', 'medicalCase'])
-        );
+        ), 201);
     }
 
     public function show(Patient $patient, PatientMedicalDocument $document): PatientMedicalDocumentResource
