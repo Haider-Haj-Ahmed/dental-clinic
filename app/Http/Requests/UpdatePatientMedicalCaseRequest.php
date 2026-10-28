@@ -21,9 +21,16 @@ class UpdatePatientMedicalCaseRequest extends FormRequest
             'treatment_performed' => ['sometimes', 'nullable', 'string'],
             'outcome'             => ['sometimes', 'nullable', 'string'],
             'is_external'         => ['sometimes', 'boolean'],
-            'previous_clinic'     => ['sometimes', 'nullable', 'string', 'max:255'],
+            'previous_clinic'     => ['sometimes', 'nullable', 'string', 'max:255', 'required_if:is_external,true'],
             'previous_dentist'    => ['sometimes', 'nullable', 'string', 'max:255'],
             'notes'               => ['sometimes', 'nullable', 'string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'previous_clinic.required_if' => 'The clinic name is required when recording an external case.',
         ];
     }
 }
