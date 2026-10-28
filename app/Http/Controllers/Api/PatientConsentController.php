@@ -10,6 +10,7 @@ use App\Models\Patient;
 use App\Models\PatientConsent;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class PatientConsentController extends Controller
@@ -23,13 +24,13 @@ class PatientConsentController extends Controller
         );
     }
 
-    public function store(StorePatientConsentRequest $request, Patient $patient): PatientConsentResource
+    public function store(StorePatientConsentRequest $request, Patient $patient): JsonResponse
     {
         $this->authorize('create', PatientConsent::class);
 
         $consent = $patient->consents()->create($request->validated());
 
-        return PatientConsentResource::make($consent->load('witnessProvider'));
+        return response()->json(PatientConsentResource::make($consent->load('witnessProvider')), 201);
     }
 
     public function show(Patient $patient, PatientConsent $consent): PatientConsentResource
