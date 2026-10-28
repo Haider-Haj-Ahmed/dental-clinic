@@ -10,6 +10,7 @@ use App\Models\Patient;
 use App\Models\PatientCondition;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class PatientConditionController extends Controller
@@ -28,13 +29,13 @@ class PatientConditionController extends Controller
         );
     }
 
-    public function store(StorePatientConditionRequest $request, Patient $patient): PatientConditionResource
+    public function store(StorePatientConditionRequest $request, Patient $patient): JsonResponse
     {
         $this->authorize('create', PatientCondition::class);
 
         $condition = $patient->conditions()->create($request->validated());
 
-        return PatientConditionResource::make($condition->load('notedBy'));
+        return response()->json(PatientConditionResource::make($condition->load('notedBy')), 201);
     }
 
     public function show(Patient $patient, PatientCondition $condition): PatientConditionResource
