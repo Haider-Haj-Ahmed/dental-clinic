@@ -10,6 +10,7 @@ use App\Models\Patient;
 use App\Models\PatientAllergy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class PatientAllergyController extends Controller
@@ -23,13 +24,13 @@ class PatientAllergyController extends Controller
         );
     }
 
-    public function store(StorePatientAllergyRequest $request, Patient $patient): PatientAllergyResource
+    public function store(StorePatientAllergyRequest $request, Patient $patient): JsonResponse
     {
         $this->authorize('create', PatientAllergy::class);
 
         $allergy = $patient->allergies()->create($request->validated());
 
-        return PatientAllergyResource::make($allergy->load('notedBy'));
+        return response()->json(PatientAllergyResource::make($allergy->load('notedBy')), 201);
     }
 
     public function show(Patient $patient, PatientAllergy $allergy): PatientAllergyResource
