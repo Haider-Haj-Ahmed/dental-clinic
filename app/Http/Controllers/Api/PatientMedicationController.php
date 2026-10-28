@@ -10,6 +10,7 @@ use App\Models\Patient;
 use App\Models\PatientMedication;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class PatientMedicationController extends Controller
@@ -27,13 +28,13 @@ class PatientMedicationController extends Controller
         );
     }
 
-    public function store(StorePatientMedicationRequest $request, Patient $patient): PatientMedicationResource
+    public function store(StorePatientMedicationRequest $request, Patient $patient): JsonResponse
     {
         $this->authorize('create', PatientMedication::class);
 
         $medication = $patient->medications()->create($request->validated());
 
-        return PatientMedicationResource::make($medication->load('prescribedBy'));
+        return response()->json(PatientMedicationResource::make($medication->load('prescribedBy')), 201);
     }
 
     public function show(Patient $patient, PatientMedication $medication): PatientMedicationResource
