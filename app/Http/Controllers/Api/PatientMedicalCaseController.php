@@ -48,7 +48,7 @@ class PatientMedicalCaseController extends Controller
 
         $case = $patient->medicalCases()->create($payload);
 
-        return response()->json(PatientMedicalCaseResource::make($case->load(['provider', 'creator'])), 201);
+        return response()->json(PatientMedicalCaseResource::make($case->loadCount('documents')->load(['provider', 'creator'])), 201);
     }
 
     public function show(Patient $patient, PatientMedicalCase $medicalCase): PatientMedicalCaseResource
