@@ -9,6 +9,7 @@ use App\Http\Resources\PaymentMethodResource;
 use App\Models\PaymentMethod;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class PaymentMethodController extends Controller
@@ -29,9 +30,9 @@ class PaymentMethodController extends Controller
         );
     }
 
-    public function store(StorePaymentMethodRequest $request): PaymentMethodResource
+    public function store(StorePaymentMethodRequest $request): JsonResponse
     {
-        return PaymentMethodResource::make(PaymentMethod::query()->create($request->validated()));
+        return response()->json(PaymentMethodResource::make(PaymentMethod::query()->create($request->validated())), 201);
     }
 
     public function show(PaymentMethod $paymentMethod): PaymentMethodResource
