@@ -10,6 +10,7 @@ use App\Models\Patient;
 use App\Models\PatientMedicalCase;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class PatientMedicalCaseController extends Controller
@@ -32,7 +33,7 @@ class PatientMedicalCaseController extends Controller
         return PatientMedicalCaseResource::collection($cases);
     }
 
-    public function store(StorePatientMedicalCaseRequest $request, Patient $patient): PatientMedicalCaseResource
+    public function store(StorePatientMedicalCaseRequest $request, Patient $patient): JsonResponse
     {
         $this->authorize('create', PatientMedicalCase::class);
 
@@ -47,7 +48,7 @@ class PatientMedicalCaseController extends Controller
 
         $case = $patient->medicalCases()->create($payload);
 
-        return PatientMedicalCaseResource::make($case->load(['provider', 'creator']));
+        return response()->json(PatientMedicalCaseResource::make($case->load(['provider', 'creator'])), 201);
     }
 
     public function show(Patient $patient, PatientMedicalCase $medicalCase): PatientMedicalCaseResource
