@@ -50,11 +50,11 @@ class RecallController extends Controller
         return RecallResource::collection($recalls);
     }
 
-    public function store(StoreRecallRequest $request): RecallResource
+    public function store(StoreRecallRequest $request): JsonResponse
     {
         $recall = Recall::query()->create($request->validated());
 
-        return RecallResource::make($recall->load('patient'));
+        return response()->json(RecallResource::make($recall->load('patient')), 201);
     }
 
     public function show(Recall $recall): RecallResource
