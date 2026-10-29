@@ -14,9 +14,17 @@ class StoreRecallRequest extends FormRequest
     {
         return [
             'patient_id' => ['required', 'integer', Rule::exists('patients', 'id')->whereNull('deleted_at')],
-            'due_date'   => ['required', 'date'],
+            'due_date'   => ['required', 'date',
+                              Rule::unique('recalls', 'due_date')->where('patient_id', $this->input('patient_id'))],
             'status'     => ['sometimes', 'string', Rule::in(Recall::STATUSES)],
             'notes'      => ['nullable', 'string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'due_date.unique' => 'A recall for this patient on that date already exists.',
         ];
     }
 }
