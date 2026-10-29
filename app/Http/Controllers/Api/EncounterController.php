@@ -35,11 +35,11 @@ class EncounterController extends Controller
         return EncounterResource::collection($encounters);
     }
 
-    public function store(StoreEncounterRequest $request): EncounterResource
+    public function store(StoreEncounterRequest $request): JsonResponse
     {
         $encounter = Encounter::query()->create($request->validated());
 
-        return EncounterResource::make($encounter->load(['patient', 'provider']));
+        return response()->json(EncounterResource::make($encounter->load(['patient', 'provider'])), 201);
     }
 
     public function show(Encounter $encounter): EncounterResource
