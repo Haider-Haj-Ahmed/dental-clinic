@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Appointment;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class StoreAppointmentRequest extends FormRequest
@@ -20,7 +21,7 @@ class StoreAppointmentRequest extends FormRequest
             'operatory_id'        => ['nullable', 'integer', 'exists:operatories,id'],
             'start_at'            => ['required', 'date'],
             'end_at'              => ['required', 'date', 'after:start_at',
-                                       'before_or_equal:'.now()->parse($this->input('start_at'))->endOfDay()->toDateTimeString()],
+                                       'before_or_equal:'.Carbon::parse($this->input('start_at'))->endOfDay()->toDateTimeString()],
             'status'              => ['sometimes', 'string', Rule::in(Appointment::STATUSES)],
             'chief_complaint'     => ['nullable', 'string', 'max:500'],
             'notes'               => ['nullable', 'string'],
