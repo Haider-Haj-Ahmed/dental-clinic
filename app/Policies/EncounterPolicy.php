@@ -24,14 +24,16 @@ class EncounterPolicy
 
     public function update(User $user, Encounter $encounter): bool
     {
-        if ($encounter->is_locked) return false;
+        // is_locked is intentionally NOT checked here — the controller returns
+        // a 422 with a descriptive message, which is more appropriate than a
+        // generic 403 for a locked record.
         if ($user->isOwner()) return true;
         return $user->isProvider() && $encounter->provider_id === $user->providerProfile?->id;
     }
 
     public function delete(User $user, Encounter $encounter): bool
     {
-        if ($encounter->is_locked) return false;
+        // is_locked handled in controller with 422.
         return $user->isOwner();
     }
 
