@@ -57,7 +57,13 @@ class PatientMedicalDocumentController extends Controller
             $payload['provider_id'] = $request->user()->providerProfile?->id;
         }
 
-        $document = PatientMedicalDocument::query()->create($payload);
+        try {
+            $document = PatientMedicalDocument::query()->create($payload);
+        } catch (\Throwable $e) {
+            // DB create failed — clean up the already-uploaded file to prevent orphans
+            $this->storage->delete($stored['path']);
+            throw $e;
+        }
 
         return response()->json(PatientMedicalDocumentResource::make(
             $document->load(['provider', 'uploadedBy', 'medicalCase'])
@@ -91,8 +97,10 @@ class PatientMedicalDocumentController extends Controller
         $this->authorize('delete', $document);
         abort_if($document->patient_id !== $patient->id, 404);
 
-        $this->storage->delete($document->file_path);
+        // Delete DB record first — if this fails, file is still intact (consistent state)
+        $filePath = $document->file_path;
         $document->delete();
+        $this->storage->delete($filePath);
 
         return response()->noContent();
     }
