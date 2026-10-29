@@ -18,7 +18,7 @@ class StorePatientMedicalDocumentRequest extends FormRequest
             'document_type'         => ['required', 'string', Rule::in(PatientMedicalDocument::TYPES)],
             'title'                 => ['required', 'string', 'max:255'],
             'description'           => ['nullable', 'string'],
-            'medical_case_id'       => ['nullable', 'integer', 'exists:patient_medical_cases,id'],
+            'medical_case_id'       => ['nullable', 'integer', Rule::exists('patient_medical_cases', 'id')->where('patient_id', $this->route('patient')->id)],
             'provider_id'           => ['nullable', 'integer', 'exists:providers,id'],
             'taken_at'              => ['nullable', 'date', 'before_or_equal:today'],
             'external_source'       => ['nullable', 'string', 'max:255'],
