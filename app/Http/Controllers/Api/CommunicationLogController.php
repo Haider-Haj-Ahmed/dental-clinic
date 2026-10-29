@@ -19,6 +19,7 @@ class CommunicationLogController extends Controller
             ->when($request->filled('patient_id'), fn ($q) => $q->where('patient_id', $request->integer('patient_id')))
             ->when($request->filled('channel'), fn ($q) => $q->where('channel', $request->string('channel')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
+            ->when($request->filled('direction'), fn ($q) => $q->where('direction', $request->string('direction')))
             ->when($request->filled('recall_id'), fn ($q) => $q->where('recall_id', $request->integer('recall_id')))
             ->orderBy('created_at', 'desc')
             ->paginate($this->perPage($request))
