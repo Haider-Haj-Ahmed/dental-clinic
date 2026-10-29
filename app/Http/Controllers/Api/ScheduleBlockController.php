@@ -9,6 +9,7 @@ use App\Http\Resources\ScheduleBlockResource;
 use App\Models\ScheduleBlock;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class ScheduleBlockController extends Controller
@@ -33,14 +34,14 @@ class ScheduleBlockController extends Controller
         return ScheduleBlockResource::collection($blocks);
     }
 
-    public function store(StoreScheduleBlockRequest $request): ScheduleBlockResource
+    public function store(StoreScheduleBlockRequest $request): JsonResponse
     {
         $payload = $request->validated();
         $payload['created_by'] = $request->user()->id;
 
         $block = ScheduleBlock::query()->create($payload);
 
-        return ScheduleBlockResource::make($block->load(['provider', 'operatory', 'creator']));
+        return response()->json(ScheduleBlockResource::make($block->load(['provider', 'operatory', 'creator'])), 201);
     }
 
     public function show(ScheduleBlock $scheduleBlock): ScheduleBlockResource
