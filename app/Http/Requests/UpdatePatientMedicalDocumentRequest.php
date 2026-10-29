@@ -16,7 +16,7 @@ class UpdatePatientMedicalDocumentRequest extends FormRequest
             'document_type'         => ['sometimes', 'required', 'string', Rule::in(PatientMedicalDocument::TYPES)],
             'title'                 => ['sometimes', 'required', 'string', 'max:255'],
             'description'           => ['sometimes', 'nullable', 'string'],
-            'medical_case_id'       => ['sometimes', 'nullable', 'integer', 'exists:patient_medical_cases,id'],
+            'medical_case_id'       => ['sometimes', 'nullable', 'integer', Rule::exists('patient_medical_cases', 'id')->where('patient_id', $this->route('patient')->id)],
             'provider_id'           => ['sometimes', 'nullable', 'integer', 'exists:providers,id'],
             'taken_at'              => ['sometimes', 'nullable', 'date', 'before_or_equal:today'],
             'external_source'       => ['sometimes', 'nullable', 'string', 'max:255'],
