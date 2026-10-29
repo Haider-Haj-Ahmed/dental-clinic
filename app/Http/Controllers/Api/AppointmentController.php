@@ -16,6 +16,7 @@ use App\Models\User;
 use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -34,7 +35,7 @@ class AppointmentController extends Controller
         $user = $request->user();
 
         $appointments = Appointment::query()
-            ->with(['patient', 'provider', 'creator'])
+            ->with(['patient', 'provider', 'creator', 'appointmentType', 'operatory'])
             ->when($user->isProvider(), function ($query) use ($user) {
                 $providerId = $user->providerProfile?->id;
                 $query->where('provider_id', $providerId ?? 0);
@@ -54,7 +55,7 @@ class AppointmentController extends Controller
         return AppointmentResource::collection($appointments);
     }
 
-    public function store(StoreAppointmentRequest $request): AppointmentResource
+    public function store(StoreAppointmentRequest $request): JsonResponse
     {
         $payload = $request->validated();
 
@@ -78,7 +79,7 @@ class AppointmentController extends Controller
             return Appointment::query()->create($payload);
         });
 
-        $appointment->load(['patient', 'provider', 'creator', 'appointmentType']);
+        $appointment->load(['patient', 'provider', 'creator', 'appointmentType', 'operatory']);
         event(new AppointmentBooked($appointment));
 
         // Confirmation email to patient (if email on file)
@@ -87,12 +88,12 @@ class AppointmentController extends Controller
                 ->queue(new AppointmentConfirmationMail($appointment));
         }
 
-        return AppointmentResource::make($appointment);
+        return response()->json(AppointmentResource::make($appointment), 201);
     }
 
     public function show(Appointment $appointment): AppointmentResource
     {
-        return AppointmentResource::make($appointment->load(['patient', 'provider', 'creator']));
+        return AppointmentResource::make($appointment->load(['patient', 'provider', 'creator', 'appointmentType', 'operatory']));
     }
 
     public function update(UpdateAppointmentRequest $request, Appointment $appointment): AppointmentResource
@@ -128,7 +129,7 @@ class AppointmentController extends Controller
             }
         }
 
-        return AppointmentResource::make($appointment->refresh()->load(['patient', 'provider', 'creator']));
+        return AppointmentResource::make($appointment->refresh()->load(['patient', 'provider', 'creator', 'appointmentType', 'operatory']));
     }
 
     public function destroy(Appointment $appointment): Response
