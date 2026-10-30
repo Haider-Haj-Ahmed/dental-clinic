@@ -13,7 +13,7 @@ class StoreOdontogramEntryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'encounter_id' => ['nullable', 'integer', 'exists:encounters,id'],
+            // encounter_id is set from the route parameter in the controller — not accepted from the request body
             'tooth_number' => ['required', 'integer', 'min:11', 'max:85'],
             'surface'      => ['nullable', 'string', 'max:10'],
             'entry_type'   => ['required', 'string', Rule::in([OdontogramEntry::ENTRY_TYPE_CONDITION, OdontogramEntry::ENTRY_TYPE_PROCEDURE])],
