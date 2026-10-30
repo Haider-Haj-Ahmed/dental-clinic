@@ -10,6 +10,7 @@ use App\Models\OdontogramEntry;
 use App\Models\Patient;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class OdontogramController extends Controller
@@ -46,7 +47,7 @@ class OdontogramController extends Controller
     }
 
     /** POST /encounters/{encounter}/odontogram-entries */
-    public function store(StoreOdontogramEntryRequest $request, \App\Models\Encounter $encounter): OdontogramEntryResource
+    public function store(StoreOdontogramEntryRequest $request, \App\Models\Encounter $encounter): JsonResponse
     {
         $this->authorize('create', OdontogramEntry::class);
 
@@ -60,13 +61,17 @@ class OdontogramController extends Controller
 
         $entry = OdontogramEntry::query()->create($payload);
 
-        return OdontogramEntryResource::make($entry->load('provider'));
+        return response()->json(OdontogramEntryResource::make($entry->load('provider')), 201);
     }
 
     /** PUT /odontogram-entries/{entry} */
     public function update(UpdateOdontogramEntryRequest $request, OdontogramEntry $odontogramEntry): OdontogramEntryResource
     {
         $this->authorize('update', $odontogramEntry);
+
+        if ($odontogramEntry->encounter_id) {
+            abort_if($odontogramEntry->encounter->is_locked, 422, 'Cannot modify entries of a locked encounter.');
+        }
 
         $odontogramEntry->update($request->validated());
 
@@ -77,6 +82,10 @@ class OdontogramController extends Controller
     public function destroy(OdontogramEntry $odontogramEntry): Response
     {
         $this->authorize('delete', $odontogramEntry);
+
+        if ($odontogramEntry->encounter_id) {
+            abort_if($odontogramEntry->encounter->is_locked, 422, 'Cannot delete entries of a locked encounter.');
+        }
 
         $odontogramEntry->delete();
 
