@@ -11,6 +11,7 @@ use App\Models\PerioExam;
 use App\Models\PerioMeasure;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
@@ -37,7 +38,7 @@ class PerioExamController extends Controller
         return PerioExamResource::collection($exams);
     }
 
-    public function store(StorePerioExamRequest $request): PerioExamResource
+    public function store(StorePerioExamRequest $request): JsonResponse
     {
         $exam = DB::transaction(function () use ($request) {
             $exam = PerioExam::query()->create($request->safe()->except('measures'));
@@ -49,7 +50,7 @@ class PerioExamController extends Controller
             return $exam;
         });
 
-        return PerioExamResource::make($exam->loadCount('measures')->load(['patient', 'provider', 'measures']));
+        return response()->json(PerioExamResource::make($exam->loadCount('measures')->load(['patient', 'provider', 'measures'])), 201);
     }
 
     public function show(PerioExam $perioExam): PerioExamResource
@@ -79,13 +80,13 @@ class PerioExamController extends Controller
     }
 
     /** POST /perio-exams/{perioExam}/measures */
-    public function storeMeasure(StorePerioMeasureRequest $request, PerioExam $perioExam): PerioMeasureResource
+    public function storeMeasure(StorePerioMeasureRequest $request, PerioExam $perioExam): JsonResponse
     {
         $this->authorize('update', $perioExam);
 
         $measure = $perioExam->measures()->create($request->validated());
 
-        return PerioMeasureResource::make($measure);
+        return response()->json(PerioMeasureResource::make($measure), 201);
     }
 
     /** DELETE /perio-exams/{perioExam}/measures/{measure} */
