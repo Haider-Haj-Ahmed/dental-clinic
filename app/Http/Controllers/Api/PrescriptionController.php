@@ -9,6 +9,7 @@ use App\Http\Resources\PrescriptionResource;
 use App\Models\Prescription;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\ClinicSetting;
@@ -37,7 +38,7 @@ class PrescriptionController extends Controller
         return PrescriptionResource::collection($prescriptions);
     }
 
-    public function store(StorePrescriptionRequest $request): PrescriptionResource
+    public function store(StorePrescriptionRequest $request): JsonResponse
     {
         $provider = $request->user()->providerProfile;
         abort_if(! $provider && ! $request->user()->isOwner(), 422, 'A provider profile is required to issue a prescription.');
@@ -45,7 +46,8 @@ class PrescriptionController extends Controller
         $prescription = DB::transaction(function () use ($request, $provider) {
             $prescription = Prescription::query()->create([
                 'patient_id'   => $request->integer('patient_id'),
-                'provider_id'  => $provider?->id ?? $request->integer('provider_id'),
+                'provider_id'  => $provider?->id ?? $request->validated('provider_id'),
+                // validated() ensures provider_id was supplied and exists when owner has no provider profile
                 'encounter_id' => $request->integer('encounter_id') ?: null,
                 'issued_at'    => $request->input('issued_at', now()),
                 'notes'        => $request->input('notes'),
@@ -58,7 +60,7 @@ class PrescriptionController extends Controller
             return $prescription;
         });
 
-        return PrescriptionResource::make($prescription->load(['patient', 'provider', 'items']));
+        return response()->json(PrescriptionResource::make($prescription->load(['patient', 'provider', 'items'])), 201);
     }
 
     public function show(Prescription $prescription): PrescriptionResource
