@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use App\Mail\PaymentReceiptMail;
 use App\Services\WebhookDispatcher;
@@ -37,7 +38,7 @@ class PaymentController extends Controller
         return PaymentResource::collection($payments);
     }
 
-    public function store(StorePaymentRequest $request): PaymentResource
+    public function store(StorePaymentRequest $request): JsonResponse
     {
         $payment = DB::transaction(function () use ($request) {
             $invoice = Invoice::query()->findOrFail($request->integer('invoice_id'));
@@ -82,26 +83,11 @@ class PaymentController extends Controller
             'paid_at'     => $payment->paid_at,
         ]);
 
-        return PaymentResource::make($payment->load(['paymentMethod', 'recordedBy']));
+        return response()->json(PaymentResource::make($payment->load(['paymentMethod', 'recordedBy'])), 201);
     }
 
     public function show(Payment $payment): PaymentResource
     {
-        // Receipt email to patient
-        if ($payment->patient->email) {
-            $payment->load(['invoice.payments', 'invoice']);
-            Mail::to($payment->patient->email, $payment->patient->first_name)
-                ->queue(new PaymentReceiptMail($payment));
-        }
-
-        app(WebhookDispatcher::class)->dispatch('payment.received', [
-            'payment_id'  => $payment->id,
-            'invoice_id'  => $payment->invoice_id,
-            'patient_id'  => $payment->patient_id,
-            'amount'      => $payment->amount,
-            'paid_at'     => $payment->paid_at,
-        ]);
-
         return PaymentResource::make($payment->load(['paymentMethod', 'recordedBy']));
     }
 
@@ -114,9 +100,11 @@ class PaymentController extends Controller
             // Recalculate invoice status
             $totalPaid = $invoice->payments()->sum('amount');
             $newStatus = match (true) {
-                $totalPaid <= 0              => Invoice::STATUS_FINALIZED,
-                $totalPaid >= $invoice->total => Invoice::STATUS_PAID,
-                default                      => Invoice::STATUS_PARTIAL,
+                // Never un-void a voided invoice
+                $invoice->status === Invoice::STATUS_VOID => Invoice::STATUS_VOID,
+                $totalPaid <= 0                           => Invoice::STATUS_FINALIZED,
+                $totalPaid >= $invoice->total             => Invoice::STATUS_PAID,
+                default                                   => Invoice::STATUS_PARTIAL,
             };
 
             $invoice->update(['status' => $newStatus]);
