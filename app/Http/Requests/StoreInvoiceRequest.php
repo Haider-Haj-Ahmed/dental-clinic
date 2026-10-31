@@ -13,7 +13,7 @@ class StoreInvoiceRequest extends FormRequest
     {
         return [
             'patient_id'     => ['required', 'integer', Rule::exists('patients', 'id')->whereNull('deleted_at')],
-            'appointment_id' => ['nullable', 'integer', 'exists:appointments,id'],
+            'appointment_id' => ['nullable', 'integer', Rule::exists('appointments', 'id')->where('patient_id', $this->input('patient_id'))],
             'provider_id'    => ['nullable', 'integer', 'exists:providers,id'],
             'issued_at'      => ['required', 'date'],
             'due_at'         => ['nullable', 'date', 'after_or_equal:issued_at'],
