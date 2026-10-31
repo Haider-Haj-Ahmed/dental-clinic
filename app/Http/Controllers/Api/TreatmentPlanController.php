@@ -9,6 +9,7 @@ use App\Http\Resources\TreatmentPlanResource;
 use App\Models\TreatmentPlan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use App\Models\ClinicSetting;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -24,6 +25,7 @@ class TreatmentPlanController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $plans = TreatmentPlan::query()
+            ->withCount('items')
             ->with(['patient', 'provider'])
             ->when($request->filled('patient_id'), fn ($q) => $q->where('patient_id', $request->integer('patient_id')))
             ->when($request->filled('provider_id'), fn ($q) => $q->where('provider_id', $request->integer('provider_id')))
@@ -35,7 +37,7 @@ class TreatmentPlanController extends Controller
         return TreatmentPlanResource::collection($plans);
     }
 
-    public function store(StoreTreatmentPlanRequest $request): TreatmentPlanResource
+    public function store(StoreTreatmentPlanRequest $request): JsonResponse
     {
         $plan = DB::transaction(function () use ($request) {
             $plan = TreatmentPlan::query()->create([
@@ -52,7 +54,7 @@ class TreatmentPlanController extends Controller
             return $plan;
         });
 
-        return TreatmentPlanResource::make($plan->load(['patient', 'provider', 'items.procedureCode', 'creator']));
+        return response()->json(TreatmentPlanResource::make($plan->load(['patient', 'provider', 'items.procedureCode', 'creator'])), 201);
     }
 
     public function show(TreatmentPlan $treatmentPlan): TreatmentPlanResource
@@ -66,7 +68,7 @@ class TreatmentPlanController extends Controller
     {
         $treatmentPlan->update($request->validated());
 
-        return TreatmentPlanResource::make($treatmentPlan->refresh()->load(['patient', 'provider', 'items']));
+        return TreatmentPlanResource::make($treatmentPlan->refresh()->load(['patient', 'provider', 'items.procedureCode', 'creator']));
     }
 
     public function destroy(TreatmentPlan $treatmentPlan): Response
@@ -88,7 +90,7 @@ class TreatmentPlanController extends Controller
             'presented_at' => now(),
         ]);
 
-        return TreatmentPlanResource::make($treatmentPlan->refresh()->load(['patient', 'provider', 'items']));
+        return TreatmentPlanResource::make($treatmentPlan->refresh()->load(['patient', 'provider', 'items.procedureCode', 'creator']));
     }
 
     /** POST /treatment-plans/{treatmentPlan}/accept */
@@ -102,7 +104,7 @@ class TreatmentPlanController extends Controller
             'accepted_at' => now(),
         ]);
 
-        return TreatmentPlanResource::make($treatmentPlan->refresh()->load(['patient', 'provider', 'items']));
+        return TreatmentPlanResource::make($treatmentPlan->refresh()->load(['patient', 'provider', 'items.procedureCode', 'creator']));
     }
 
     /** POST /treatment-plans/{treatmentPlan}/reject */
@@ -116,7 +118,7 @@ class TreatmentPlanController extends Controller
             'rejected_at' => now(),
         ]);
 
-        return TreatmentPlanResource::make($treatmentPlan->refresh()->load(['patient', 'provider', 'items']));
+        return TreatmentPlanResource::make($treatmentPlan->refresh()->load(['patient', 'provider', 'items.procedureCode', 'creator']));
     }
 
     /**
