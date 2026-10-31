@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreTreatmentPlanRequest extends FormRequest
 {
@@ -11,7 +12,7 @@ class StoreTreatmentPlanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'patient_id'  => ['required', 'integer', 'exists:patients,id'],
+            'patient_id'  => ['required', 'integer', Rule::exists('patients', 'id')->whereNull('deleted_at')],
             'provider_id' => ['required', 'integer', 'exists:providers,id'],
             'title'       => ['required', 'string', 'max:255'],
             'notes'       => ['nullable', 'string'],
