@@ -29,6 +29,7 @@ class InvoiceController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $invoices = Invoice::query()
+            ->withCount('payments')
             ->with(['patient', 'provider'])
             ->when($request->filled('patient_id'), fn ($q) => $q->where('patient_id', $request->integer('patient_id')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
@@ -45,7 +46,7 @@ class InvoiceController extends Controller
         return InvoiceResource::collection($invoices);
     }
 
-    public function store(StoreInvoiceRequest $request): InvoiceResource
+    public function store(StoreInvoiceRequest $request): JsonResponse
     {
         $invoice = DB::transaction(function () use ($request) {
             $data    = $request->safe()->except('items');
@@ -61,7 +62,7 @@ class InvoiceController extends Controller
             return $invoice;
         });
 
-        return InvoiceResource::make($invoice->load(['patient', 'provider', 'items.procedureCode']));
+        return response()->json(InvoiceResource::make($invoice->load(['patient', 'provider', 'items.procedureCode', 'payments.paymentMethod'])), 201);
     }
 
     public function show(Invoice $invoice): InvoiceResource
@@ -103,7 +104,7 @@ class InvoiceController extends Controller
             'finalized_by' => $request->user()->id,
         ]);
 
-        $invoice->refresh()->load(['patient', 'provider', 'items']);
+        $invoice->refresh()->load(['patient', 'provider', 'items.procedureCode', 'payments.paymentMethod']);
 
         // Invoice email to patient with PDF attachment
         if ($invoice->patient->email) {
@@ -133,7 +134,7 @@ class InvoiceController extends Controller
             'voided_by' => $request->user()->id,
         ]);
 
-        return InvoiceResource::make($invoice->refresh());
+        return InvoiceResource::make($invoice->refresh()->load(['patient', 'provider', 'items.procedureCode', 'payments.paymentMethod']));
     }
 
     /** GET /patients/{patient}/ledger */
@@ -159,6 +160,7 @@ class InvoiceController extends Controller
 
         $totalPaid = \App\Models\Payment::query()
             ->where('patient_id', $patient->id)
+            ->whereHas('invoice', fn ($q) => $q->whereNotIn('status', [Invoice::STATUS_VOID, Invoice::STATUS_DRAFT]))
             ->sum('amount');
 
         return response()->json([
