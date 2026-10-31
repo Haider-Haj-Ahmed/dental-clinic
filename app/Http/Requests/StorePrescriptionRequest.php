@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePrescriptionRequest extends FormRequest
 {
@@ -11,8 +12,9 @@ class StorePrescriptionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'patient_id'   => ['required', 'integer', 'exists:patients,id'],
-            'encounter_id' => ['nullable', 'integer', 'exists:encounters,id'],
+            'patient_id'   => ['required', 'integer', Rule::exists('patients', 'id')->whereNull('deleted_at')],
+            'encounter_id' => ['nullable', 'integer', Rule::exists('encounters', 'id')->where('patient_id', $this->input('patient_id'))],
+            'provider_id'  => ['nullable', 'integer', 'exists:providers,id'],
             'issued_at'    => ['sometimes', 'date'],
             'notes'        => ['nullable', 'string'],
             'items'        => ['required', 'array', 'min:1'],
