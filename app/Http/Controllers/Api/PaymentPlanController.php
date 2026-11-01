@@ -9,6 +9,7 @@ use App\Models\PaymentPlan;
 use App\Models\PaymentPlanItem;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +33,7 @@ class PaymentPlanController extends Controller
         return PaymentPlanResource::collection($plans);
     }
 
-    public function store(StorePaymentPlanRequest $request): PaymentPlanResource
+    public function store(StorePaymentPlanRequest $request): JsonResponse
     {
         $plan = DB::transaction(function () use ($request) {
             $plan = PaymentPlan::query()->create($request->validated());
@@ -54,7 +55,7 @@ class PaymentPlanController extends Controller
             return $plan;
         });
 
-        return PaymentPlanResource::make($plan->load(['patient', 'invoice', 'items']));
+        return response()->json(PaymentPlanResource::make($plan->load(['patient', 'invoice', 'items'])), 201);
     }
 
     public function show(PaymentPlan $paymentPlan): PaymentPlanResource
