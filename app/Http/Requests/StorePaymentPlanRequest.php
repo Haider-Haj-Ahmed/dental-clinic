@@ -13,7 +13,7 @@ class StorePaymentPlanRequest extends FormRequest
     {
         return [
             'patient_id'   => ['required', 'integer', Rule::exists('patients', 'id')->whereNull('deleted_at')],
-            'invoice_id'   => ['nullable', 'integer', 'exists:invoices,id'],
+            'invoice_id'   => ['nullable', 'integer', Rule::exists('invoices', 'id')->where('patient_id', $this->input('patient_id'))],
             'total_amount' => ['required', 'numeric', 'min:0.01'],
             'installments' => ['required', 'integer', 'min:2', 'max:60'],
             'start_date'   => ['required', 'date'],
