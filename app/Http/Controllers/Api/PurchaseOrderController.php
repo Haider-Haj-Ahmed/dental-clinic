@@ -9,6 +9,7 @@ use App\Models\PurchaseOrder;
 use App\Models\StockMovement;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +33,7 @@ class PurchaseOrderController extends Controller
         return PurchaseOrderResource::collection($orders);
     }
 
-    public function store(StorePurchaseOrderRequest $request): PurchaseOrderResource
+    public function store(StorePurchaseOrderRequest $request): JsonResponse
     {
         $order = DB::transaction(function () use ($request) {
             $order = PurchaseOrder::query()->create([
@@ -47,7 +48,7 @@ class PurchaseOrderController extends Controller
             return $order;
         });
 
-        return PurchaseOrderResource::make($order->load(['supplier', 'creator', 'items.inventoryItem']));
+        return response()->json(PurchaseOrderResource::make($order->load(['supplier', 'creator', 'items.inventoryItem'])), 201);
     }
 
     public function show(PurchaseOrder $purchaseOrder): PurchaseOrderResource
@@ -119,7 +120,7 @@ class PurchaseOrderController extends Controller
 
         $purchaseOrder->update(['status' => PurchaseOrder::STATUS_CANCELLED]);
 
-        return PurchaseOrderResource::make($purchaseOrder->refresh()->load(['supplier', 'creator', 'items']));
+        return PurchaseOrderResource::make($purchaseOrder->refresh()->load(['supplier', 'creator', 'items.inventoryItem']));
     }
 
     public function destroy(PurchaseOrder $purchaseOrder): Response
