@@ -9,6 +9,7 @@ use App\Http\Resources\SupplierResource;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class SupplierController extends Controller
@@ -35,9 +36,9 @@ class SupplierController extends Controller
         return SupplierResource::collection($suppliers);
     }
 
-    public function store(StoreSupplierRequest $request): SupplierResource
+    public function store(StoreSupplierRequest $request): JsonResponse
     {
-        return SupplierResource::make(Supplier::query()->create($request->validated()));
+        return response()->json(SupplierResource::make(Supplier::query()->create($request->validated())), 201);
     }
 
     public function show(Supplier $supplier): SupplierResource
