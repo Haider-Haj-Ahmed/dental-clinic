@@ -7,7 +7,7 @@ use App\Models\User;
 
 class PaymentPlanPolicy
 {
-    public function viewAny(User $user): bool { return $user->hasAnyRole([User::ROLE_OWNER, User::ROLE_RECEPTIONIST, User::ROLE_PROVIDER]); }
+    public function viewAny(User $user): bool { return $user->hasAnyRole([User::ROLE_OWNER, User::ROLE_RECEPTIONIST, User::ROLE_PROVIDER, User::ROLE_ASSISTANT]); }
     public function view(User $user, PaymentPlan $model): bool { return $this->viewAny($user); }
     public function create(User $user): bool  { return $user->isOwner() || $user->isReceptionist(); }
     public function update(User $user, PaymentPlan $model): bool { return $user->isOwner() || $user->isReceptionist(); }
