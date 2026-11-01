@@ -59,11 +59,27 @@ class InventoryItemController extends Controller
         return InventoryItemResource::collection($items);
     }
 
-    public function store(StoreInventoryItemRequest $request): InventoryItemResource
+    public function store(StoreInventoryItemRequest $request): JsonResponse
     {
-        return InventoryItemResource::make(
-            InventoryItem::query()->create($request->validated())->load('supplier')
-        );
+        $item = DB::transaction(function () use ($request) {
+            $item = InventoryItem::query()->create($request->validated());
+
+            // Create an opening stock movement if initial stock is provided
+            if ($item->current_stock > 0) {
+                $item->stockMovements()->create([
+                    'performed_by'  => $request->user()->id,
+                    'movement_type' => StockMovement::TYPE_IN,
+                    'quantity'      => $item->current_stock,
+                    'stock_after'   => $item->current_stock,
+                    'reason'        => 'Opening stock',
+                    'performed_at'  => now(),
+                ]);
+            }
+
+            return $item;
+        });
+
+        return response()->json(InventoryItemResource::make($item->load('supplier')), 201);
     }
 
     public function show(InventoryItem $inventoryItem): InventoryItemResource
