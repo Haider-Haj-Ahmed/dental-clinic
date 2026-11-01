@@ -229,7 +229,7 @@ class PatientController extends Controller
             $invoice->items()->forceDelete();
             $invoice->forceDelete();
         });
-        $patient->paymentPlans()->each(fn ($pp) => $pp->installments()->forceDelete() && $pp->forceDelete());
+        $patient->paymentPlans()->each(function ($pp) { $pp->items()->forceDelete(); $pp->forceDelete(); });
         $patient->contacts()->forceDelete();
         $patient->allergies()->forceDelete();
         $patient->conditions()->forceDelete();
