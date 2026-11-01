@@ -16,9 +16,16 @@ class StorePurchaseOrderRequest extends FormRequest
             'expected_at'              => ['nullable', 'date'],
             'notes'                    => ['nullable', 'string'],
             'items'                    => ['required', 'array', 'min:1'],
-            'items.*.inventory_item_id'=> ['required', 'integer', 'exists:inventory_items,id'],
+            'items.*.inventory_item_id'=> ['required', 'integer', 'exists:inventory_items,id', 'distinct'],
             'items.*.quantity_ordered' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost'        => ['required', 'numeric', 'min:0'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'items.*.inventory_item_id.distinct' => 'Each inventory item can only appear once per order.',
         ];
     }
 }
