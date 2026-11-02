@@ -24,6 +24,8 @@ class ClinicSettingController extends Controller
      */
     public function show(): JsonResponse
     {
+        abort_if(! request()->user()?->isOwner(), 403, 'Only the clinic owner can view settings.');
+
         $settings = ClinicSetting::instance();
 
         return response()->json([
