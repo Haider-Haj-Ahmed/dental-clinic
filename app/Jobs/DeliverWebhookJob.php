@@ -108,14 +108,16 @@ class DeliverWebhookJob implements ShouldQueue
             'status' => WebhookDelivery::STATUS_FAILED,
         ]);
 
-        // Auto-deactivate if 10 consecutive failures
-        $recentFailures = $this->webhook->deliveries()
-            ->where('status', WebhookDelivery::STATUS_FAILED)
+        // Auto-deactivate if the last 10 deliveries are ALL failures (consecutive)
+        $recentStatuses = $this->webhook->deliveries()
             ->latest()
             ->limit(10)
-            ->count();
+            ->pluck('status');
 
-        if ($recentFailures >= 10) {
+        $allFailed = $recentStatuses->count() >= 10
+            && $recentStatuses->every(fn ($s) => $s === WebhookDelivery::STATUS_FAILED);
+
+        if ($allFailed) {
             $this->webhook->update(['is_active' => false]);
             Log::warning("Webhook #{$this->webhook->id} auto-deactivated after 10 consecutive failures.");
         }
