@@ -63,21 +63,12 @@ class ReportController extends Controller
         return $this->formatResponse($request, $data, 'recall-performance-report');
     }
 
-    public function recallPerformance_OLD(Request $request): JsonResponse
+
+    public function inventory(Request $request): JsonResponse|Response
     {
         $this->authorizeReports($request);
-        return response()->json([
-            'data' => $this->reports->recallPerformanceReport($this->dateFilters($request)),
-        ]);
-    }
-
-    public function inventory(Request $request): JsonResponse
-    {
-        $this->authorizeReports($request);
-
-        return response()->json([
-            'data' => $this->reports->inventoryReport($this->dateFilters($request)),
-        ]);
+        $data = $this->reports->inventoryReport($this->dateFilters($request));
+        return $this->formatResponse($request, $data, 'inventory-report');
     }
 
     /**
