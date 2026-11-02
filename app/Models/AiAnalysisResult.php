@@ -14,7 +14,8 @@ class AiAnalysisResult extends Model
     public const TYPE_XRAY_ANALYSIS         = 'xray_analysis';
     public const TYPE_SOAP_SUGGESTION       = 'soap_suggestion';
     public const TYPE_PRESCRIPTION_SUGGESTION = 'prescription_suggestion';
-    public const TYPE_PERIO_RISK            = 'perio_risk';
+    public const TYPE_PERIO_RISK              = 'perio_risk';
+    public const TYPE_RECALL_PRIORITISATION   = 'recall_prioritisation';
 
     public const STATUS_PENDING   = 'pending';
     public const STATUS_ACCEPTED  = 'accepted';
