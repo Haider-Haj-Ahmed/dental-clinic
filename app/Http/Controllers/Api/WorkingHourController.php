@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateWorkingHoursRequest;
 use App\Models\WorkingHour;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 /**
  * WorkingHourController
@@ -41,16 +42,18 @@ class WorkingHourController extends Controller
      */
     public function update(UpdateWorkingHoursRequest $request): JsonResponse
     {
-        foreach ($request->validated('hours') as $entry) {
-            WorkingHour::updateOrCreate(
-                ['day_of_week' => $entry['day_of_week']],
-                [
-                    'is_closed'  => $entry['is_closed'],
-                    'open_time'  => $entry['is_closed'] ? null : $entry['open_time'],
-                    'close_time' => $entry['is_closed'] ? null : $entry['close_time'],
-                ]
-            );
-        }
+        DB::transaction(function () use ($request) {
+            foreach ($request->validated('hours') as $entry) {
+                WorkingHour::updateOrCreate(
+                    ['day_of_week' => $entry['day_of_week']],
+                    [
+                        'is_closed'  => $entry['is_closed'],
+                        'open_time'  => $entry['is_closed'] ? null : $entry['open_time'],
+                        'close_time' => $entry['is_closed'] ? null : $entry['close_time'],
+                    ]
+                );
+            }
+        });
 
         $hours = WorkingHour::orderBy('day_of_week')->get()
             ->map(fn ($h) => [
