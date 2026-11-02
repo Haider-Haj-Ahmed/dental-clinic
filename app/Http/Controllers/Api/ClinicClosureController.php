@@ -24,6 +24,11 @@ class ClinicClosureController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $request->validate([
+            'from' => ['sometimes', 'date_format:Y-m-d'],
+            'to'   => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
+
         $from = $request->query('from', now()->toDateString());
         $to   = $request->query('to',   now()->addYear()->toDateString());
 
@@ -55,8 +60,10 @@ class ClinicClosureController extends Controller
     /**
      * Delete a closure. Owner only.
      */
-    public function destroy(ClinicClosure $closure): JsonResponse
+    public function destroy(Request $request, ClinicClosure $closure): JsonResponse
     {
+        abort_if(! $request->user()?->isOwner(), 403, 'Only the clinic owner can remove closures.');
+
         $closure->delete();
 
         return response()->json(['message' => 'Clinic closure removed.']);
