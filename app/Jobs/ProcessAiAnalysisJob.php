@@ -36,24 +36,12 @@ class ProcessAiAnalysisJob implements ShouldQueue
 
     public function handle(): void
     {
-        try {
-            app(\App\Services\AiService::class)->processResult($this->result);
-
-            $this->result->refresh()->load(['patient', 'requestedBy']);
-
-            event(new AiResultReady($this->result));
-
-            if ($this->result->requestedBy?->email) {
-                Mail::to($this->result->requestedBy->email, $this->result->requestedBy->name)
-                    ->queue(new AiResultPendingMail($this->result));
-            }
-
-            Log::info("ProcessAiAnalysisJob: result #{$this->result->id} processed.");
-
-        } catch (\Throwable $e) {
-            $this->result->update(['status' => AiAnalysisResult::STATUS_DISMISSED]);
-            throw $e;
-        }
+        // NOTE: AiService::processResult() does not exist.
+        // AI analysis is currently performed synchronously in each controller method
+        // (analyzeDocument, suggestSoap, suggestPrescription, scorePerioRisk, prioritiseRecalls).
+        // This job is reserved for Phase 5 async processing — wire it up then.
+        // For now, log and exit gracefully to avoid queue failures.
+        Log::warning("ProcessAiAnalysisJob dispatched but AI processing is synchronous. Result #{$this->result->id} was already processed.");
     }
 
     public function failed(\Throwable $e): void
