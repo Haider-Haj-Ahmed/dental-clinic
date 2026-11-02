@@ -10,6 +10,7 @@ use App\Models\PerioExam;
 use App\Models\Recall;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
 class AiService
@@ -104,7 +105,7 @@ class AiService
 
     private function callVisionApi(string $filePath, string $mimeType, string $prompt): array
     {
-        $imageData = base64_encode(file_get_contents(storage_path('app/private/'.$filePath)));
+        $imageData = base64_encode(Storage::get($filePath));
 
         $response = Http::timeout(60)
             ->post("{$this->baseUrl}/{$this->model}:generateContent?key={$this->apiKey}", [
@@ -346,7 +347,7 @@ PROMPT;
         return AiAnalysisResult::create([
             'patient_id'    => $exam->patient_id,
             'requested_by'  => $requestedBy->id,
-            'source_type'   => 'encounter',
+            'source_type'   => 'perio_exam',
             'source_id'     => $exam->id,
             'analysis_type' => AiAnalysisResult::TYPE_PERIO_RISK,
             'ai_provider'   => 'gemini',
@@ -372,7 +373,7 @@ PROMPT;
             'requested_by'  => $requestedBy->id,
             'source_type'   => 'patient',
             'source_id'     => $recalls->first()->patient_id,
-            'analysis_type' => AiAnalysisResult::TYPE_PERIO_RISK, // reuse type slot — dedicated type not needed
+            'analysis_type' => AiAnalysisResult::TYPE_RECALL_PRIORITISATION,
             'ai_provider'   => 'gemini',
             'ai_model'      => config('ai.models.text', 'gemini-2.0-flash'),
             'input_summary' => "Recall prioritisation — {$recalls->count()} pending recalls",
