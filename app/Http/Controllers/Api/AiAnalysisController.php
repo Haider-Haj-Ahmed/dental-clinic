@@ -294,7 +294,7 @@ class AiAnalysisController extends Controller
         );
 
         $existing = AiAnalysisResult::query()
-            ->where('source_type', 'encounter')
+            ->where('source_type', 'perio_exam')
             ->where('source_id', $perioExam->id)
             ->where('analysis_type', AiAnalysisResult::TYPE_PERIO_RISK)
             ->where('status', AiAnalysisResult::STATUS_PENDING)
