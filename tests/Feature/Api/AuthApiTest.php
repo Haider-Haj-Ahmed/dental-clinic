@@ -34,7 +34,7 @@ class AuthApiTest extends TestCase
         $this->withToken($token)
             ->getJson('/api/v1/auth/me')
             ->assertOk()
-            ->assertJsonPath('data.email', $user->email);
+            ->assertJsonPath('user.email', $user->email);
     }
 
     public function test_login_fails_with_invalid_credentials(): void

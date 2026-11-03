@@ -164,8 +164,8 @@ class HardeningTest extends TestCase
 
     public function test_rate_limiters_are_registered(): void
     {
-        $this->assertTrue(RateLimiter::has('api'));
-        $this->assertTrue(RateLimiter::has('auth'));
+        $this->assertNotNull(RateLimiter::limiter('api'));
+        $this->assertNotNull(RateLimiter::limiter('auth'));
     }
 
     // ── Sanctum token expiry ──────────────────────────────────────────────────

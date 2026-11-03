@@ -18,7 +18,7 @@ class UserApiTest extends TestCase
         $this->postJson('/api/v1/users', [
             'name'     => 'Jane Receptionist',
             'email'    => 'jane@clinic.local',
-            'password' => 'password123',
+            'password' => 'Password123',
             'role'     => User::ROLE_RECEPTIONIST,
         ])->assertCreated()
             ->assertJsonPath('data.role', User::ROLE_RECEPTIONIST);
@@ -38,7 +38,7 @@ class UserApiTest extends TestCase
         $this->postJson('/api/v1/users', [
             'name'     => 'Test',
             'email'    => 'test@test.com',
-            'password' => 'password',
+            'password' => 'Password123',
             'role'     => 'superadmin',
         ])->assertUnprocessable()
             ->assertJsonValidationErrors('role');

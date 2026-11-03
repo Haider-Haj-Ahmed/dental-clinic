@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Encounter extends Model
 {
+    /** @use HasFactory<\Database\Factories\EncounterFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'appointment_id', 'patient_id', 'provider_id',
         'encounter_date', 'subjective', 'objective', 'assessment', 'plan',

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -60,5 +61,17 @@ class InvoiceFactory extends Factory
     public function forPatient(Patient $patient): static
     {
         return $this->state(['patient_id' => $patient->id]);
+    }
+
+    /** Attach line items after create (required before finalize). */
+    public function withItems(int $count = 1): static
+    {
+        return $this->afterCreating(function (Invoice $invoice) use ($count) {
+            InvoiceItem::factory()
+                ->count($count)
+                ->create(['invoice_id' => $invoice->id]);
+
+            $invoice->recalculateTotals();
+        });
     }
 }

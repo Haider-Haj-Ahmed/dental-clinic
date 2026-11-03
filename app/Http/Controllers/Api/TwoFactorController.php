@@ -100,7 +100,9 @@ class TwoFactorController extends Controller
         }
 
         $secret = decrypt($user->two_factor_secret);
-        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'), null, 1);
+        // 3rd arg = window (not timestamp). Passing a 4th arg would pin verification
+        // to a fixed counter and reject every real OTP.
+        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'));
 
         if (! $valid) {
             return response()->json([
@@ -145,7 +147,7 @@ class TwoFactorController extends Controller
         }
 
         $secret = decrypt($user->two_factor_secret);
-        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'), null, 1);
+        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'));
 
         if (! $valid) {
             return response()->json([
@@ -210,7 +212,7 @@ class TwoFactorController extends Controller
         }
 
         $secret = decrypt($user->two_factor_secret);
-        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'), null, 1);
+        $valid  = $this->google2fa->verifyKey($secret, $request->validated('code'));
 
         if (! $valid) {
             return response()->json([

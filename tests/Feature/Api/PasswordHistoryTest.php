@@ -46,17 +46,19 @@ class PasswordHistoryTest extends TestCase
 
     public function test_change_password_rejects_recently_used_password(): void
     {
-        $user  = User::factory()->create();
+        // Must satisfy Password::min(8)->mixedCase()->numbers() before history is checked
+        $user = User::factory()->create([
+            'password' => 'StrongPass1',
+        ]);
         $token = $user->createToken('test')->plainTextToken;
 
-        // Record current password in history
         $user->recordPasswordHistory();
 
         $this->withToken($token)
              ->postJson('/api/v1/auth/change-password', [
-                 'current_password'      => 'password',
-                 'password'              => 'password',   // same as current
-                 'password_confirmation' => 'password',
+                 'current_password'      => 'StrongPass1',
+                 'password'              => 'StrongPass1',
+                 'password_confirmation' => 'StrongPass1',
              ])->assertStatus(422)
                ->assertJsonPath('errors.password.0', 'You have used this password recently. Please choose a different password.');
     }

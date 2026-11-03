@@ -11,7 +11,13 @@ class ResetAuthGuards
 {
     public function handle(Request $request, Closure $next): Response
     {
-        Auth::forgetGuards();
+        // Sanctum::actingAs() stores the user on the resolved guard. Clearing
+        // guards here would make every Feature test that uses actingAs get 401.
+        // Production / real Bearer-token requests still reset so portal (Patient)
+        // and staff (User) auth cannot leak across the shared sanctum guard.
+        if (! app()->runningUnitTests()) {
+            Auth::forgetGuards();
+        }
 
         return $next($request);
     }
