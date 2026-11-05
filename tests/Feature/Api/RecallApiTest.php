@@ -111,7 +111,7 @@ class RecallApiTest extends TestCase
 
         $this->assertDatabaseHas('communication_logs', [
             'patient_id' => $this->patient->id,
-            'recall_id'  => null, // logged via recall's communicationLogs relation — patient_id is set
+            'recall_id'  => $recall->id, // logged via recall's communicationLogs relation — patient_id is set
             'status'     => 'queued',
         ]);
 
