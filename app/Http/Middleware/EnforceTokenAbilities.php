@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,14 +14,12 @@ class EnforceTokenAbilities
 {
     public function handle(Request $request, Closure $next, string $ability): Response
     {
-        $user = $request->user();
+        // Use the sanctum guard explicitly so Sanctum::actingAs() works correctly
+        // in tests with role-specific abilities (not just ['*']).
+        $user = auth('sanctum')->user() ?? $request->user();
 
         if (! $user) {
             return $next($request);
-        }
-
-        if (! $user instanceof User) {
-            return response()->json(['message' => 'Unauthenticated.'], Response::HTTP_UNAUTHORIZED);
         }
 
         // Owner tokens carry '*' — always pass
