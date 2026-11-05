@@ -218,8 +218,8 @@ class AiPerioRecallTest extends TestCase
         $existing = AiAnalysisResult::factory()->create([
             'patient_id'    => $this->patient->id,
             'requested_by'  => $this->providerUser->id,
-            'source_type'   => 'encounter',
-            'source_id'     => $exam->id,
+            'source_type'   => 'perio_exam',
+            'source_id'     => \$exam->id,
             'analysis_type' => AiAnalysisResult::TYPE_PERIO_RISK,
             'status'        => AiAnalysisResult::STATUS_PENDING,
         ]);
